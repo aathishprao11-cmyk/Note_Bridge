@@ -60,6 +60,25 @@ export async function buildApp({ config, importer, agent }: BuildOptions): Promi
   const app = Fastify({ logger: false });
   await app.register(cors, { origin: true });
 
+  // Browsers' fetch wrappers often send `content-type: application/json` with NO body (e.g. a
+  // bare POST /align). Fastify's default parser rejects that with a bare 400, so treat an empty
+  // body as `{}`. Malformed JSON is still a 400, now with the usual error shape.
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+    const text = typeof body === 'string' ? body : body.toString('utf8');
+    if (text.trim() === '') return done(null, {});
+    try {
+      done(null, JSON.parse(text));
+    } catch {
+      done(
+        Object.assign(new Error('Request body is not valid JSON'), {
+          statusCode: 400,
+          code: 'bad_json',
+        }),
+        undefined,
+      );
+    }
+  });
+
   const db = openDb(config.DATABASE_PATH);
   app.addHook('onClose', async () => {
     db.close();
