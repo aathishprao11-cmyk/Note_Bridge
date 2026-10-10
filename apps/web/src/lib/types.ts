@@ -12,13 +12,13 @@ import type {
   Section,
   Chunk,
   Exercise,
-  Edge,
+  AlignmentEdge,
   Citation,
   Usage,
   JobProgress,
   SourceRole,
+  DocumentKind,
   Relation,
-  EdgeStatus,
   JobKind,
   JobStatus,
 } from '@gyan/core';
@@ -29,16 +29,33 @@ export type {
   Section,
   Chunk,
   Exercise,
-  Edge,
+  AlignmentEdge,
   Citation,
   Usage,
   JobProgress,
   SourceRole,
+  DocumentKind,
   Relation,
-  EdgeStatus,
   JobKind,
   JobStatus,
 };
+
+/**
+ * View model the Phase 1b screens use (kept from Laptop B's screens). After the contract freeze
+ * the API returns `AlignmentEdge` (lecture unit -> book chunk); lib/api.ts converts it to this
+ * shape: `profUnitId` is a lecture unit id and `bookSectionId` is the matched book chunk id.
+ */
+export type EdgeStatus = 'proposed' | 'confirmed' | 'rejected' | 'remapped';
+export interface Edge {
+  id: string;
+  courseId: string;
+  profUnitId: string;
+  bookSectionId: string | null;
+  relation: Relation;
+  confidence: number;
+  rationale: string;
+  status: EdgeStatus;
+}
 
 /** A professor unit (slide/note section) paired with its matched book section, for the Viewer. */
 export interface MatchPair {

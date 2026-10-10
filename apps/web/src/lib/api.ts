@@ -11,7 +11,8 @@ import type {
   Section,
   Edge,
   EdgeStatus,
-  SourceRole,
+  DocumentKind,
+  Relation,
   JobProgress,
   Coverage,
 } from './types';
@@ -99,15 +100,20 @@ export interface UploadResult {
 export async function uploadDocument(
   courseId: string,
   file: File,
-  role: SourceRole,
+  kind: DocumentKind,
 ): Promise<UploadResult> {
   if (useMock) {
     return {
       document: {
         id: `doc-${Date.now()}`,
         courseId,
-        role,
+        kind,
         title: file.name,
+        path: null,
+        level: 'standard',
+        meta: {},
+        status: 'processing',
+        extractionQuality: null,
         contentHash: 'pending',
         pageCount: 0,
         pageOffset: 0,
@@ -118,7 +124,7 @@ export async function uploadDocument(
   }
   const form = new FormData();
   form.append('file', file);
-  form.append('role', role);
+  form.append('kind', kind);
   // No JSON content-type: the browser sets multipart boundaries.
   const res = await fetch(`/api/courses/${encodeURIComponent(courseId)}/documents`, {
     method: 'POST',
@@ -133,15 +139,44 @@ export async function uploadDocument(
     }
     throw toApiError(res.status, body);
   }
-  return (await res.json()) as UploadResult;
+  // The contract answers { documentId, jobId, cached }; the screens want the document itself.
+  const started = (await res.json()) as { documentId: string; jobId: string };
+  const document = (await listDocuments(courseId)).find((d) => d.id === started.documentId);
+  if (!document) throw new ApiError(500, 'http_error', 'Uploaded document was not found');
+  return { document, jobId: started.jobId };
 }
 
+/**
+ * There is no /sections route in the contract (Section 14). Units and the book passages the
+ * alignment refers to come from GET /api/courses/:id/alignment and are shaped as Sections.
+ */
 export async function listSections(courseId: string): Promise<Section[]> {
   if (useMock) {
     const docIds = new Set(mockDocuments.filter((d) => d.courseId === courseId).map((d) => d.id));
     return mockSections.filter((s) => docIds.has(s.documentId));
   }
-  return request<Section[]>(`/api/courses/${encodeURIComponent(courseId)}/sections`);
+  const a = await getAlignment(courseId);
+  const units = a.units.map(({ unit }): Section => ({
+    id: unit.id,
+    documentId: unit.documentId,
+    parentId: null,
+    title: unit.title,
+    level: 1,
+    pageStart: unit.unitNo,
+    pageEnd: unit.unitNo,
+    summary: null,
+  }));
+  const passages = Object.values(a.chunks).map((c): Section => ({
+    id: c.id,
+    documentId: c.documentId,
+    parentId: null,
+    title: `${c.section ?? c.chapter ?? 'Passage'} (p.${c.printedPageStart ?? c.pdfPageStart})`,
+    level: 2,
+    pageStart: c.pdfPageStart,
+    pageEnd: c.pdfPageEnd,
+    summary: null,
+  }));
+  return [...units, ...passages];
 }
 
 export async function startAlign(courseId: string): Promise<{ jobId: string }> {
@@ -151,9 +186,54 @@ export async function startAlign(courseId: string): Promise<{ jobId: string }> {
   });
 }
 
+/** The slice of GET /api/courses/:id/alignment (api-contract.ts AlignmentResponse) used here. */
+interface AlignmentEdgeView {
+  id: string;
+  unitId: string;
+  chunkId: string;
+  relation: Relation;
+  confidence: number;
+  rationale: string;
+  userStatus: 'none' | 'confirmed' | 'rejected' | 'remapped';
+}
+interface AlignmentView {
+  units: Array<{ unit: { id: string; documentId: string; unitNo: number; title: string } }>;
+  edges: AlignmentEdgeView[];
+  chunks: Record<
+    string,
+    {
+      id: string;
+      documentId: string;
+      chapter: string | null;
+      section: string | null;
+      pdfPageStart: number;
+      pdfPageEnd: number;
+      printedPageStart: number | null;
+    }
+  >;
+}
+
+function getAlignment(courseId: string): Promise<AlignmentView> {
+  return request<AlignmentView>(`/api/courses/${encodeURIComponent(courseId)}/alignment`);
+}
+
+function toEdge(courseId: string, e: AlignmentEdgeView): Edge {
+  return {
+    id: e.id,
+    courseId,
+    profUnitId: e.unitId,
+    bookSectionId: e.chunkId,
+    relation: e.relation,
+    confidence: e.confidence,
+    rationale: e.rationale,
+    status: e.userStatus === 'none' ? 'proposed' : e.userStatus,
+  };
+}
+
+/** GET /api/courses/:id/alignment, converted to the edge view model the screens use. */
 export async function listEdges(courseId: string): Promise<Edge[]> {
   if (useMock) return mockEdges.filter((e) => e.courseId === courseId);
-  return request<Edge[]>(`/api/courses/${encodeURIComponent(courseId)}/edges`);
+  return (await getAlignment(courseId)).edges.map((e) => toEdge(courseId, e));
 }
 
 export interface UpdateEdgeBody {
@@ -161,16 +241,27 @@ export interface UpdateEdgeBody {
   bookSectionId?: string;
 }
 
+/** PATCH /api/edges/:id with { action: confirm | reject | remap (+ chunkId) }. */
 export async function updateEdge(edgeId: string, body: UpdateEdgeBody): Promise<Edge> {
   if (useMock) {
     const edge = mockEdges.find((e) => e.id === edgeId);
     if (!edge) throw new ApiError(404, 'not_found', `Edge ${edgeId} not found`);
     return { ...edge, ...body };
   }
-  return request<Edge>(`/api/edges/${encodeURIComponent(edgeId)}`, {
-    method: 'PUT',
-    body: JSON.stringify(body),
+  const payload =
+    body.status === 'confirmed'
+      ? { action: 'confirm' }
+      : body.status === 'rejected'
+        ? { action: 'reject' }
+        : body.status === 'remapped' && body.bookSectionId
+          ? { action: 'remap', chunkId: body.bookSectionId }
+          : null;
+  if (!payload) throw new ApiError(400, 'bad_request', 'Only confirm, reject or remap can be sent');
+  const updated = await request<AlignmentEdgeView>(`/api/edges/${encodeURIComponent(edgeId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
   });
+  return toEdge('', updated);
 }
 
 /**

@@ -103,7 +103,7 @@ describe('server wiring', () => {
     const claim = 'sum of the integers 1 to 100';
     const ok = await app.inject({
       method: 'POST',
-      url: '/api/plugins/verifier/verify',
+      url: '/api/features/verifier/verify',
       payload: { claim, expected: '5050' },
     });
     expect(ok.statusCode).toBe(200);
@@ -111,7 +111,7 @@ describe('server wiring', () => {
 
     const bad = await app.inject({
       method: 'POST',
-      url: '/api/plugins/verifier/verify',
+      url: '/api/features/verifier/verify',
       payload: { claim, expected: '5051' },
     });
     expect(bad.json()).toMatchObject({ status: 'mismatch', actual: '5050' });

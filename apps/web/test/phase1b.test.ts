@@ -28,7 +28,7 @@ describe('format helpers', () => {
   });
 
   it('relationLabel maps each relation to a label', () => {
-    expect(relationLabel('same')).toBe('Same');
+    expect(relationLabel('covers')).toBe('Covers');
     expect(relationLabel('conflicts')).toBe('Conflicts');
     expect(relationLabel('professor_only')).toBe('Professor only');
   });

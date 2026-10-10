@@ -45,7 +45,7 @@ export function AlignmentMap() {
     (id ? sections.find((s) => s.id === id)?.title : undefined) ?? '—';
 
   // Remap targets are book-document sections only (role lives on the Document, not the Section).
-  const bookDocIds = new Set(documents.filter((d) => d.role === 'book').map((d) => d.id));
+  const bookDocIds = new Set(documents.filter((d) => d.kind === 'book').map((d) => d.id));
   const bookOptions = sections.filter((s) => bookDocIds.has(s.documentId));
 
   async function onStartAlign() {

@@ -19,7 +19,7 @@ export function ProgressBar({ value }: { value: number }) {
 }
 
 const RELATION_STYLE: Record<Relation, string> = {
-  same: 'bg-green-100 text-green-800',
+  covers: 'bg-green-100 text-green-800',
   extends: 'bg-blue-100 text-blue-800',
   conflicts: 'bg-red-100 text-red-800',
   professor_only: 'bg-amber-100 text-amber-800',

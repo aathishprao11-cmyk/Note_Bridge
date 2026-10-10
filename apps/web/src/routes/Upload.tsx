@@ -1,23 +1,30 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { listDocuments, subscribeJobProgress, uploadDocument, type UploadResult } from '../lib/api';
-import type { Document, JobProgress, SourceRole } from '../lib/types';
+import type { Document, DocumentKind, JobProgress } from '../lib/types';
 import { ProgressBar, ErrorBanner, Loading, EmptyState } from '../components/ui';
 
-const ROLES: { value: SourceRole; label: string }[] = [
+const ROLES: { value: DocumentKind; label: string }[] = [
   { value: 'book', label: 'Book (PDF)' },
   { value: 'slides', label: 'Slides (PDF)' },
-  { value: 'notes', label: 'Notes (PDF)' },
+  { value: 'handwritten', label: 'Handwritten notes (PDF or image)' },
 ];
 
-const ROLE_LABEL: Record<SourceRole, string> = { book: 'Book', slides: 'Slides', notes: 'Notes' };
+const ROLE_LABEL: Record<DocumentKind, string> = {
+  book: 'Book',
+  slides: 'Slides',
+  handwritten: 'Handwritten notes',
+  past_paper: 'Past paper',
+  syllabus: 'Syllabus',
+  text_note: 'Text note',
+};
 
 /** Documents screen: list docs, upload a new source (role + file) with live ingest progress. */
 export function Upload() {
   const { courseId = '' } = useParams();
   const [documents, setDocuments] = useState<Document[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [role, setRole] = useState<SourceRole>('slides');
+  const [role, setRole] = useState<DocumentKind>('slides');
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<JobProgress | null>(null);
@@ -68,7 +75,7 @@ export function Upload() {
             <select
               className="rounded border border-slate-300 px-3 py-2"
               value={role}
-              onChange={(e) => setRole(e.target.value as SourceRole)}
+              onChange={(e) => setRole(e.target.value as DocumentKind)}
             >
               {ROLES.map((r) => (
                 <option key={r.value} value={r.value}>
@@ -117,10 +124,10 @@ export function Upload() {
               <div>
                 <p className="font-medium">{d.title}</p>
                 <p className="text-xs text-slate-500">
-                  {ROLE_LABEL[d.role]} · {d.pageCount} pages
+                  {ROLE_LABEL[d.kind]} · {d.pageCount} pages
                 </p>
               </div>
-              <span className="rounded bg-slate-100 px-2 py-0.5 text-xs">{ROLE_LABEL[d.role]}</span>
+              <span className="rounded bg-slate-100 px-2 py-0.5 text-xs">{ROLE_LABEL[d.kind]}</span>
             </li>
           ))}
         </ul>

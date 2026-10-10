@@ -1,4 +1,4 @@
-import type { GyanPlugin, PluginContext, PluginRequest, PluginRoute } from '@gyan/core';
+import type { FeaturePlugin, PluginContext } from '@gyan/core';
 import { DEMO_SCRIPTS, MockScriptWriter } from './scriptWriter';
 import type { SandboxRun, ScriptWriter, VerifyRequest } from './types';
 import { verify } from './verify';
@@ -25,7 +25,7 @@ function parseBody(body: unknown): VerifyRequest | null {
     : { claim: b.claim, expected: b.expected };
 }
 
-export function createVerifierPlugin(options: VerifierOptions = {}): GyanPlugin & {
+export function createVerifierPlugin(options: VerifierOptions = {}): FeaturePlugin & {
   attachSandbox(run: SandboxRun): void;
 } {
   let run = options.run;
@@ -33,37 +33,40 @@ export function createVerifierPlugin(options: VerifierOptions = {}): GyanPlugin 
 
   return {
     id: 'verifier',
-    name: 'Verifier',
+    name: 'Verified by running code',
     version: '0.1.0',
-    panels: [{ id: 'verifier', title: 'Verified by running code', slot: 'chat' }],
-    attachSandbox(next) {
+    attachSandbox(next: SandboxRun) {
       run = next;
     },
-    register(ctx: PluginContext): PluginRoute[] {
-      return [
-        {
-          method: 'POST',
-          path: '/verify',
-          handler: async (req: PluginRequest) => {
-            const body = parseBody(req.body);
-            if (!body) {
-              return {
-                error: { code: 'invalid_request', message: 'Body must be { claim, expected }.' },
-              };
-            }
-            if (!run) {
-              ctx.log('verifier: no sandbox attached; /verify cannot run code');
-              return {
-                status: 'error',
-                claim: body.claim,
-                reason: 'sandbox_unavailable',
-                message: 'The code sandbox is not available on this server.',
-              };
-            }
-            return verify(body, { writer, run });
-          },
-        },
-      ];
+    register(ctx: PluginContext): void {
+      ctx.addUiPanel({
+        id: 'verifier',
+        title: 'Verified by running code',
+        icon: 'check',
+        mount: 'chat',
+        componentPath: 'verifier',
+      });
+      // Mounted at POST /api/features/verifier/verify
+      ctx.addRoutes('', (app) => {
+        app.post('/verify', async (req) => {
+          const body = parseBody(req.body);
+          if (!body) {
+            return {
+              error: { code: 'invalid_request', message: 'Body must be { claim, expected }.' },
+            };
+          }
+          if (!run) {
+            ctx.logger.warn('verifier: no sandbox attached; /verify cannot run code');
+            return {
+              status: 'error',
+              claim: body.claim,
+              reason: 'sandbox_unavailable',
+              message: 'The code sandbox is not available on this server.',
+            };
+          }
+          return verify(body, { writer, run });
+        });
+      });
     },
   };
 }

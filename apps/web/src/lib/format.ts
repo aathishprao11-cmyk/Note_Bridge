@@ -17,8 +17,8 @@ export function ratioToPercent(ratio: number): number {
 /** Human label for a Relation badge on the Alignment Map / Viewer. */
 export function relationLabel(relation: Relation): string {
   switch (relation) {
-    case 'same':
-      return 'Same';
+    case 'covers':
+      return 'Covers';
     case 'extends':
       return 'Extends';
     case 'conflicts':
@@ -75,7 +75,7 @@ export function computeCoverage(
 
   const isProfessorRole = (sectionId: string): boolean => {
     const doc = docById.get(sectionById.get(sectionId)?.documentId ?? '');
-    return doc?.role === 'slides' || doc?.role === 'notes';
+    return doc?.kind === 'slides' || doc?.kind === 'handwritten';
   };
 
   const matchedProfIds = new Set<string>();
@@ -90,7 +90,7 @@ export function computeCoverage(
   const professorSections = sections.filter((s) => isProfessorRole(s.id));
   const bookSections = sections.filter((s) => {
     const doc = docById.get(s.documentId);
-    return doc?.role === 'book';
+    return doc?.kind === 'book';
   });
 
   const professorOnly = professorSections.filter((s) => !matchedProfIds.has(s.id));
