@@ -9,6 +9,7 @@ const TABS = [
   { to: 'viewer', label: 'Viewer' },
   { to: 'align', label: 'Alignment map' },
   { to: 'coverage', label: 'Coverage' },
+  { to: 'chat', label: 'Chat' },
 ] as const;
 
 /** Layout for a single course: header + per-course sub-nav, renders the active screen. */

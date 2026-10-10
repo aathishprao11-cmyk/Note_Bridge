@@ -8,6 +8,7 @@ import { Upload } from './routes/Upload';
 import { Viewer } from './routes/Viewer';
 import { AlignmentMap } from './routes/AlignmentMap';
 import { CoverageScreen } from './routes/Coverage';
+import { Chat } from './routes/Chat';
 
 function Home() {
   const [health, setHealth] = useState<Health | null>(null);
@@ -58,6 +59,7 @@ export function App() {
           <Route path="viewer" element={<Viewer />} />
           <Route path="align" element={<AlignmentMap />} />
           <Route path="coverage" element={<CoverageScreen />} />
+          <Route path="chat" element={<Chat />} />
         </Route>
       </Routes>
     </div>

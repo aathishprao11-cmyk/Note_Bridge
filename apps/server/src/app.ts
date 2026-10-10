@@ -8,6 +8,7 @@ import {
   type Config,
   type Logger,
 } from '@gyan/core';
+import { createAgent, createChunkSource, registerStudyChatRoute, type Agent } from './agent';
 import { openDb, type Db } from './db';
 import { DocumentRepository } from './db/repositories/documents';
 import { IngestStore } from './db/repositories/ingest-store';
@@ -51,9 +52,11 @@ export interface BuiltApp {
 export interface BuildOptions {
   config: Config;
   importer?: PluginImporter;
+  /** Defaults to the deterministic MockAgent. Tests inject their own. */
+  agent?: Agent;
 }
 
-export async function buildApp({ config, importer }: BuildOptions): Promise<BuiltApp> {
+export async function buildApp({ config, importer, agent }: BuildOptions): Promise<BuiltApp> {
   const app = Fastify({ logger: false });
   await app.register(cors, { origin: true });
 
@@ -108,7 +111,14 @@ export async function buildApp({ config, importer }: BuildOptions): Promise<Buil
   registerCourseRoutes(app, db);
   registerAlignmentRoutes(app, db, runner);
   registerDocumentRoutes(app, db);
-  registerChatRoutes(app, db);
+  // Chat: the contract stub keeps GET /chat/examples; POST /chat is the Study Agent (Laptop B).
+  registerChatRoutes(app, db, { post: false });
+  await registerStudyChatRoute(app, db, {
+    agent: agent ?? createAgent(config, (m) => logger.info(m)),
+    source: createChunkSource(db),
+    maxToolCalls: config.MAX_TOOL_CALLS,
+    log: (m, e) => logger.info(m, e),
+  });
 
   app.get('/api/health', async () => ({
     ok: true,
