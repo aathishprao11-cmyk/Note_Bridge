@@ -242,12 +242,18 @@ export const ListCoursesResponse = z.array(CourseSchema);
 
 export const CourseParams = z.object({ id });
 
-/** POST /api/courses/:id/documents (multipart). Fields: kind (required), title, level. */
-export const UploadFields = z.object({
-  kind: DocumentKindSchema,
-  title: z.string().trim().max(200).optional(),
-  level: DocumentLevelSchema.optional(),
-});
+/** POST /api/courses/:id/documents (multipart). Manual notes are split at ---PAGE---. */
+export const UploadFields = z
+  .object({
+    kind: DocumentKindSchema,
+    title: z.string().trim().max(200).optional(),
+    level: DocumentLevelSchema.optional(),
+    transcript: z.string().trim().min(1).max(50_000).optional(),
+  })
+  .refine((fields) => fields.transcript === undefined || fields.kind === 'handwritten', {
+    message: 'A manual transcript is only supported for handwritten notes.',
+    path: ['transcript'],
+  });
 export const UploadResponse = z.object({
   documentId: id,
   jobId: id,

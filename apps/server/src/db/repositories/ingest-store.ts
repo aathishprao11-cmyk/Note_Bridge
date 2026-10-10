@@ -90,9 +90,16 @@ export class IngestStore {
         documentId,
       );
 
+      if (result.manualTranscript) {
+        db.prepare(
+          `UPDATE documents SET extraction_quality = NULL,
+          meta_json = json_set(meta_json, '$.transcriptionSource', 'manual') WHERE id = ?`,
+        ).run(documentId);
+      }
+      const pageTexts = new Map(result.pageTexts?.map((p) => [p.page, p.text]) ?? []);
       const insPage = db.prepare(
         `INSERT INTO pages (id, document_id, pdf_page, printed_page, text, is_scanned, garbled_score)
-         VALUES (?, ?, ?, ?, '', ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       );
       for (const q of result.pageQuality) {
         insPage.run(
@@ -100,6 +107,7 @@ export class IngestStore {
           documentId,
           q.page,
           q.page + result.pageOffset,
+          pageTexts.get(q.page) ?? '',
           q.scanned ? 1 : 0,
           1 - q.score,
         );

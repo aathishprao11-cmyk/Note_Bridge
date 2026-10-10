@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { listDocuments, subscribeJobProgress, uploadDocument, type UploadResult } from '../lib/api';
+import { listDocuments, subscribeJobProgress, uploadDocument } from '../lib/api';
 import type { Document, DocumentKind, JobProgress } from '../lib/types';
 import { ProgressBar, ErrorBanner, Loading, EmptyState } from '../components/ui';
 
-const ROLES: { value: DocumentKind; label: string }[] = [
-  { value: 'book', label: 'Book (PDF)' },
-  { value: 'slides', label: 'Slides (PDF)' },
-  { value: 'handwritten', label: 'Handwritten notes (PDF or image)' },
+const ROLES: { value: DocumentKind; label: string; accept: string; needsTranscript?: boolean }[] = [
+  { value: 'book', label: 'Book (PDF)', accept: 'application/pdf' },
+  { value: 'slides', label: 'Slides (PDF)', accept: 'application/pdf' },
+  {
+    value: 'handwritten',
+    label: 'Handwritten notes (PDF or image)',
+    accept: 'application/pdf,image/png,image/jpeg',
+    needsTranscript: true,
+  },
 ];
 
 const ROLE_LABEL: Record<DocumentKind, string> = {
@@ -19,15 +24,22 @@ const ROLE_LABEL: Record<DocumentKind, string> = {
   text_note: 'Text note',
 };
 
-/** Documents screen: list docs, upload a new source (role + file) with live ingest progress. */
+/**
+ * Documents screen: list docs, upload a new source with live ingest progress.
+ * Handwritten notes are read offline from a transcript you type (no OCR/vision provider runs);
+ * separate physical pages with ---PAGE--- on its own line.
+ */
 export function Upload() {
   const { courseId = '' } = useParams();
   const [documents, setDocuments] = useState<Document[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [role, setRole] = useState<DocumentKind>('slides');
   const [file, setFile] = useState<File | null>(null);
+  const [transcript, setTranscript] = useState('');
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<JobProgress | null>(null);
+
+  const roleSpec = ROLES.find((r) => r.value === role) ?? ROLES[1]!;
 
   async function refresh() {
     setError(null);
@@ -45,18 +57,39 @@ export function Upload() {
   async function onUpload(e: React.FormEvent) {
     e.preventDefault();
     if (!file || uploading) return;
+    if (roleSpec.needsTranscript && !transcript.trim()) {
+      setError('Type what your notes say before uploading (handwriting recognition is offline).');
+      return;
+    }
     setUploading(true);
     setError(null);
     setProgress({ jobId: '', kind: 'ingest', status: 'queued', progress: 0, message: 'Uploading' });
     try {
-      const result: UploadResult = await uploadDocument(courseId, file, role);
+      const result = await uploadDocument(
+        courseId,
+        file,
+        role,
+        roleSpec.needsTranscript ? transcript : undefined,
+      );
       const unsub = subscribeJobProgress(result.jobId, 'ingest', {
-        onProgress: setProgress,
-        onError: (err) => setError(err.message),
-        onDone: () => {
-          unsub();
+        onProgress: (p) => {
+          setProgress(p);
+          // Terminal frames are the answer; the stream closes right after them. Treating a
+          // normal 'failed' ingest as a disconnect used to hide the real error message.
+          if (p.status === 'done') {
+            unsub();
+            setUploading(false);
+            void refresh();
+          } else if (p.status === 'failed') {
+            unsub();
+            setError(p.message || 'Ingestion failed.');
+            setUploading(false);
+            void refresh();
+          }
+        },
+        onError: (err) => {
+          setError(err.message);
           setUploading(false);
-          void refresh();
         },
       });
     } catch (err) {
@@ -75,7 +108,11 @@ export function Upload() {
             <select
               className="rounded border border-slate-300 px-3 py-2"
               value={role}
-              onChange={(e) => setRole(e.target.value as DocumentKind)}
+              onChange={(e) => {
+                setRole(e.target.value as DocumentKind);
+                setFile(null);
+                setTranscript('');
+              }}
             >
               {ROLES.map((r) => (
                 <option key={r.value} value={r.value}>
@@ -85,10 +122,13 @@ export function Upload() {
             </select>
           </label>
           <label className="text-sm">
-            <span className="mb-1 block text-slate-600">PDF file</span>
+            <span className="mb-1 block text-slate-600">
+              {roleSpec.needsTranscript ? 'File (PDF, PNG or JPEG)' : 'PDF file'}
+            </span>
             <input
+              key={role}
               type="file"
-              accept="application/pdf"
+              accept={roleSpec.accept}
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               className="text-sm"
             />
@@ -101,6 +141,28 @@ export function Upload() {
             {uploading ? 'Uploading…' : 'Upload'}
           </button>
         </form>
+
+        {roleSpec.needsTranscript && (
+          <label className="mt-3 block text-sm">
+            <span className="mb-1 block text-slate-600">
+              Transcript (type what the notes say; no handwriting OCR runs offline)
+            </span>
+            <textarea
+              value={transcript}
+              onChange={(e) => setTranscript(e.target.value)}
+              rows={6}
+              maxLength={50_000}
+              placeholder={
+                'Page 1 text…\n\n---PAGE---\n\nPage 2 text… (only when the file has more pages)'
+              }
+              className="w-full rounded border border-slate-300 px-3 py-2 font-mono text-sm"
+            />
+            <span className="mt-1 block text-xs text-slate-500">
+              One block per file page; put ---PAGE--- on its own line between pages. The server
+              checks the page count before indexing.
+            </span>
+          </label>
+        )}
 
         {uploading && progress && (
           <div className="mt-4 space-y-1">

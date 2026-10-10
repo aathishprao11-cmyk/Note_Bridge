@@ -1,6 +1,6 @@
 import multipart from '@fastify/multipart';
 import type { FastifyInstance } from 'fastify';
-import { DocumentKindSchema, type DocumentKind, type SourceRole } from '@gyan/core';
+import { DocumentKindSchema, UploadFields, type DocumentKind, type SourceRole } from '@gyan/core';
 import type { JobRepository } from '../db/repositories/jobs';
 import { startIngest, type IngestDeps, type ProgressBus } from '../jobs';
 
@@ -36,7 +36,9 @@ function fail(
  * Errors use { error: { code, message } } as in docs/API.md.
  */
 export async function registerIngestRoutes(app: FastifyInstance, deps: IngestRouteDeps) {
-  await app.register(multipart, { limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 } });
+  await app.register(multipart, {
+    limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fieldSize: 200_000 },
+  });
   const { documents } = deps.ingest;
 
   app.post<{ Params: { courseId: string } }>(
@@ -55,6 +57,8 @@ export async function registerIngestRoutes(app: FastifyInstance, deps: IngestRou
             bytes = new Uint8Array(await part.toBuffer());
             filename = part.filename;
           } else if (typeof part.value === 'string') {
+            if (part.valueTruncated)
+              return fail(reply, 413, 'field_too_large', 'An upload field is too large.');
             fields[part.fieldname] = part.value;
           }
         }
@@ -87,8 +91,26 @@ export async function registerIngestRoutes(app: FastifyInstance, deps: IngestRou
           `Uploading "${kind.data}" is not supported yet; use book, slides or handwritten.`,
         );
       }
+      const parsedFields = UploadFields.safeParse(fields);
+      if (!parsedFields.success) {
+        return fail(
+          reply,
+          400,
+          'bad_upload',
+          parsedFields.error.issues.map((i) => i.message).join('; '),
+        );
+      }
+      const transcript = parsedFields.data.transcript;
+      if (kind.data === 'handwritten' && deps.ingest.llm.id === 'mock' && !transcript) {
+        return fail(
+          reply,
+          400,
+          'transcript_required',
+          'Offline handwritten uploads need a manual transcript. Enter the text from your notes; automatic handwriting recognition is not enabled.',
+        );
+      }
       const title = (fields.title ?? '').trim() || filename.replace(/\.[^.]+$/, '') || 'Untitled';
-      const started = startIngest(deps.ingest, { courseId, role, title, bytes });
+      const started = startIngest(deps.ingest, { courseId, role, title, bytes, transcript });
       return reply.code(202).send(started);
     },
   );

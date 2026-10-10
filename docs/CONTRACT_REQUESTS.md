@@ -14,6 +14,20 @@ Entry format:
 
 ## Open
 
+### Manual transcript for offline handwritten uploads (from Laptop B, 2026-10-10)
+
+- File(s): `packages/core/src/api-contract.ts`, `packages/core/src/ingest/*`,
+  `apps/server/src/routes/ingest.ts`, `apps/server/src/jobs/*`,
+  `apps/server/src/db/repositories/ingest-store.ts` (all Laptop A / shared)
+- Change wanted: with no vision provider, "Handwritten notes" could never work (mock vision returns
+  `[mock-vision:...]`, no PDF page renderer is wired). Added an optional `transcript` upload field
+  (handwritten kind only): the server validates the file, splits the text on `---PAGE---` against the
+  real page count, and indexes it with no OCR call. `pages.text` now stores it, and the ingestion
+  cache hash includes the transcript so a corrected version re-ingests. The upload route returns
+  `transcript_required` (400) instead of ingesting mock text. This implements part of BRIEF 10-B
+  handoff (repair-and-reingest); a real `vision()` provider can replace the manual path later.
+- Status: done (landed with Laptop B's fix commit; please review)
+
 ### FYI for Laptop B: contract freeze (from Laptop A, 2026-10-10)
 
 Breaking changes for anything already written against Phase 0 / 1a:

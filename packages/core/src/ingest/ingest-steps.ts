@@ -2,13 +2,21 @@ import type { EmbeddingProvider, LLMProvider } from '../providers/llm';
 import type { SourceRole } from '../types';
 import { assessTranscription, pageFromText, sniffImageType, transcribeImage } from './handwriting';
 import { extractPdf } from './pdf';
-import type { OutlineItem, PageQuality, PageText, ProgressFn } from './types';
+import {
+  IngestError,
+  type OutlineItem,
+  type PageQuality,
+  type PageText,
+  type ProgressFn,
+} from './types';
 
 export interface IngestInput {
   documentId: string;
   role: SourceRole;
   title: string;
   bytes: Uint8Array;
+  /** User-entered text, one physical page per ---PAGE--- separated block. No vision call. */
+  transcript?: string;
   llm: LLMProvider;
   embeddings: EmbeddingProvider;
   onProgress?: ProgressFn;
@@ -39,6 +47,35 @@ export async function loadPages(
   warnings: string[],
   report: ProgressFn,
 ): Promise<LoadedPages> {
+  if (input.transcript !== undefined) {
+    if (input.role !== 'notes' || !input.transcript.trim() || input.transcript.length > 50_000) {
+      throw new IngestError(
+        'Supply a non-empty handwritten transcript of at most 50,000 characters.',
+      );
+    }
+    const isImage = sniffImageType(input.bytes) !== null;
+    const isPdf = Buffer.from(input.bytes.subarray(0, 5)).toString('ascii') === '%PDF-';
+    if (!isImage && !isPdf)
+      throw new IngestError('Attach a PDF, PNG or JPEG for handwritten notes.');
+    // Reading the PDF verifies it and gets the physical page count; no rendering/OCR is needed.
+    const pageCount = isImage ? 1 : (await extractPdf(input.bytes)).pageCount;
+    const parts = input.transcript.replace(/\r\n?/g, '\n').split(/^\s*---PAGE---\s*$/m);
+    if (parts.length !== pageCount) {
+      throw new IngestError(
+        `This file has ${pageCount} page(s), but the transcript has ${parts.length} block(s). Separate each page with ---PAGE--- on its own line.`,
+      );
+    }
+    if (parts.some((part) => !part.trim())) {
+      throw new IngestError('Every page needs a transcript; do not leave page blocks empty.');
+    }
+    report({
+      stage: 'transcribe',
+      progress: 0.1,
+      message: 'Using your manual transcript (no OCR)',
+    });
+    warnings.push('Manually entered transcript. It has not been checked against the handwriting.');
+    return { pages: parts.map((text, i) => pageFromText(i + 1, text)), pageCount, outline: [] };
+  }
   if (sniffImageType(input.bytes)) {
     report({ stage: 'transcribe', progress: 0.1, message: 'Reading image' });
     const t = await transcribeImage(input.llm, input.bytes);

@@ -93,38 +93,28 @@ export async function listDocuments(courseId: string): Promise<Document[]> {
 }
 
 export interface UploadResult {
-  document: Document;
+  documentId: string;
   jobId: string;
+  cached: boolean;
 }
 
 export async function uploadDocument(
   courseId: string,
   file: File,
   kind: DocumentKind,
+  transcript?: string,
 ): Promise<UploadResult> {
   if (useMock) {
-    return {
-      document: {
-        id: `doc-${Date.now()}`,
-        courseId,
-        kind,
-        title: file.name,
-        path: null,
-        level: 'standard',
-        meta: {},
-        status: 'processing',
-        extractionQuality: null,
-        contentHash: 'pending',
-        pageCount: 0,
-        pageOffset: 0,
-        createdAt: new Date().toISOString(),
-      },
-      jobId: `job-${Date.now()}`,
-    };
+    throw new ApiError(
+      400,
+      'real_upload_required',
+      'Uploads require the real API. Start the web app with VITE_USE_MOCK_API=false.',
+    );
   }
   const form = new FormData();
   form.append('file', file);
   form.append('kind', kind);
+  if (transcript !== undefined) form.append('transcript', transcript.trim());
   // No JSON content-type: the browser sets multipart boundaries.
   const res = await fetch(`/api/courses/${encodeURIComponent(courseId)}/documents`, {
     method: 'POST',
@@ -139,11 +129,9 @@ export async function uploadDocument(
     }
     throw toApiError(res.status, body);
   }
-  // The contract answers { documentId, jobId, cached }; the screens want the document itself.
-  const started = (await res.json()) as { documentId: string; jobId: string };
-  const document = (await listDocuments(courseId)).find((d) => d.id === started.documentId);
-  if (!document) throw new ApiError(500, 'http_error', 'Uploaded document was not found');
-  return { document, jobId: started.jobId };
+  // Don't fetch the pending document: a fast failure may delete it before that request.
+  // Keep the job id so the progress stream can show the actual failure reason.
+  return (await res.json()) as UploadResult;
 }
 
 /**

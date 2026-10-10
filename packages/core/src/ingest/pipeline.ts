@@ -31,6 +31,9 @@ export interface IngestResult {
   embeddings: number[][];
   embeddingModel: string;
   warnings: string[];
+  /** Text to expose on the page endpoint, including manually supplied transcripts. */
+  pageTexts?: Array<{ page: number; text: string }>;
+  manualTranscript?: boolean;
 }
 
 const EMBED_BATCH = 32;
@@ -44,7 +47,19 @@ export async function ingestDocument(input: IngestInput): Promise<IngestResult> 
   const { pages, pageCount, outline } = await loadPages(input, warnings, report);
 
   report({ stage: 'quality', progress: 0.2, message: 'Checking text quality' });
-  const quality = assessPages(pages);
+  // Manual text is user-supplied, not OCR: don't reject short formulas or non-English notes
+  // using the English PDF garble heuristic. This score is readability, not transcription accuracy.
+  const quality =
+    input.transcript !== undefined
+      ? pages.map((p): PageQuality => ({
+          page: p.page,
+          score: 1,
+          verdict: 'ok',
+          reasons: ['manual transcript; not OCR verified'],
+          formulaHeavy: false,
+          scanned: false,
+        }))
+      : assessPages(pages);
   await applyVision(input, pages, quality, warnings);
   const rejected = new Set(quality.filter((q) => q.verdict === 'reject').map((q) => q.page));
   for (const q of quality) {
@@ -69,7 +84,7 @@ export async function ingestDocument(input: IngestInput): Promise<IngestResult> 
 
   report({ stage: 'structure', progress: 0.4, message: 'Finding sections' });
   // After offsets (which need the printed numbers): drop headers, footers and page numbers.
-  const body = stripPageFurniture(readable);
+  const body = input.transcript !== undefined ? readable : stripPageFurniture(readable);
   const structure = buildStructure({
     pages: body,
     outline,
@@ -132,5 +147,7 @@ export async function ingestDocument(input: IngestInput): Promise<IngestResult> 
     embeddings,
     embeddingModel: input.embeddings.id,
     warnings,
+    pageTexts: readable.map((p) => ({ page: p.page, text: p.text })),
+    manualTranscript: input.transcript !== undefined,
   };
 }

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   contentHash,
   ingestDocument,
@@ -24,6 +24,7 @@ export interface IngestRequest {
   role: SourceRole;
   title: string;
   bytes: Uint8Array;
+  transcript?: string;
 }
 
 export interface IngestStarted {
@@ -38,7 +39,16 @@ export interface IngestStarted {
  * return the existing document and a job that is already 'done', without calling any model.
  */
 export function startIngest(deps: IngestDeps, req: IngestRequest): IngestStarted {
-  const hash = contentHash(req.bytes);
+  // A corrected transcript must not return stale text from a file-only cache entry.
+  const hash =
+    req.transcript === undefined
+      ? contentHash(req.bytes)
+      : createHash('sha256')
+          .update('manual-transcript-v1\0')
+          .update(contentHash(req.bytes))
+          .update('\0')
+          .update(req.transcript.trim().replace(/\r\n?/g, '\n'))
+          .digest('hex');
 
   const existing = deps.documents.findByHash(req.courseId, hash);
   if (existing) {
@@ -64,6 +74,7 @@ export function startIngest(deps: IngestDeps, req: IngestRequest): IngestStarted
         role: req.role,
         title: req.title,
         bytes: req.bytes,
+        transcript: req.transcript,
         llm: deps.llm,
         embeddings: deps.embeddings,
         renderPage: deps.renderPage,
