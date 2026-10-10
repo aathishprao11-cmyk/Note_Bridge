@@ -326,8 +326,20 @@ export interface ChapterCoverage {
   matchedPages: number;
   /** matchedPages / totalPages, 0..1. */
   coverage: number;
-  professorOnlyUnits: number;
+  /** Sections of this chapter with no counted edge. */
   bookOnlySections: number;
+  /** Chunks of this chapter flagged book_only. */
+  bookOnlyChunks: number;
+  conflicts: number;
+  lowConfidenceEdges: number;
+}
+
+/** Professor-only units belong to no chapter, so course-wide counts live here. */
+export interface CoverageTotals {
+  units: number;
+  unitsWithEdges: number;
+  professorOnlyUnits: number;
+  bookOnlyChunks: number;
   conflicts: number;
   lowConfidenceEdges: number;
 }
@@ -340,6 +352,9 @@ export interface ReadingPathItem {
 
 export interface CoverageReport {
   courseId: string;
+  /** EDGE_MIN_CONFIDENCE used for this report. */
+  edgeMinConfidence: number;
   chapters: ChapterCoverage[];
+  totals: CoverageTotals;
   readingPaths: ReadingPathItem[];
 }

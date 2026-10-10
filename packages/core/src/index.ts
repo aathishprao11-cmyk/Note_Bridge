@@ -6,3 +6,5 @@ export * from './providers';
 export * from './retrieve';
 export * from './ground';
 export * from './ingest';
+
+export * from './api-contract';
