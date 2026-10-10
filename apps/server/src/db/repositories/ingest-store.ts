@@ -164,6 +164,29 @@ export class IngestStore {
         if (vec) insEmb.run(c.id, result.embeddingModel, encodeVector(vec));
       });
 
+      // Slides and notes: one lecture unit per section (BRIEF 7: "one lecture_unit per slide"),
+      // whose text is that section's chunks. Books produce chunks, not units.
+      const kind = (
+        db.prepare('SELECT kind FROM documents WHERE id = ?').get(documentId) as { kind: string }
+      ).kind;
+      if (kind === 'slides' || kind === 'handwritten') {
+        const insUnit = db.prepare(
+          `INSERT INTO lecture_units (id, document_id, unit_no, title, text, query_text)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+        );
+        let unitNo = 0;
+        for (const s of result.sections) {
+          const text = result.chunks
+            .filter((c) => c.sectionIndex === s.index)
+            .map((c) => c.text)
+            .join('\n')
+            .trim();
+          if (text.length === 0) continue;
+          unitNo += 1;
+          insUnit.run(`unit_${documentId}_${unitNo}`, documentId, unitNo, s.title, text, text);
+        }
+      }
+
       const insEx = db.prepare(
         `INSERT INTO exercises (id, document_id, chunk_id, label, statement, has_solution, solution, page,
            printed_page)

@@ -18,7 +18,7 @@ import {
 } from '@gyan/core';
 import type { Db } from '../db';
 import { courseOfUnit, loadAlignmentState, syncFlags } from './alignment-state';
-import type { JobRunner } from '../jobs';
+import { startAlign, type JobRunner } from '../jobs';
 import {
   badRequest,
   chunkRefs,
@@ -33,9 +33,9 @@ import {
 
 /**
  * Alignment routes (Laptop A). Edges, flags and coverage are computed from the stored rows, and
- * PATCH persists the student's correction. Only POST /align is still a placeholder job: the
- * alignment engine that WRITES new edges (Phase 1b) does not exist yet, so edges come from the
- * seeded demo course. The contract does not change when it lands.
+ * PATCH persists the student's correction. POST /align runs the deterministic, model-free matcher
+ * (jobs/align-job.ts): it finds the right passages but cannot judge extends / conflicts, so its
+ * edges are `covers` with capped confidence. The LLM judge is not built yet.
  */
 export function registerAlignmentRoutes(
   app: FastifyInstance,
@@ -62,10 +62,9 @@ export function registerAlignmentRoutes(
     if (!courseExists(db, params.data.id)) {
       return fail(reply, 404, 'course_not_found', `No course with id "${params.data.id}"`);
     }
-    const jobId = runner.start('align', null, async (report) => {
-      report(0.5, 'Alignment engine not implemented yet; keeping the existing map');
-      report(1, 'Done (stub)');
-    });
+    // Real, model-free alignment (jobs/align-job.ts). A failure (nothing to align) surfaces as a
+    // failed job with a clear message, not a silent "Done".
+    const jobId = startAlign(runner, db, params.data.id);
     return send(reply, AlignResponse, { jobId }, 202);
   });
 
