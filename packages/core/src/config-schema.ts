@@ -12,6 +12,10 @@ const baseShape = {
   PORT: z.coerce.number().int().min(1).max(65535).default(3001),
   DATABASE_PATH: z.string().default('./data/gyan.db'),
   MAX_TOOL_CALLS: z.coerce.number().int().min(1).max(50).default(8),
+  /** Edges below this are not counted in coverage or flags (BRIEF 9.4). Tune with the eval. */
+  EDGE_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.5),
+  /** Minimum fuzzy-match score for a quote to count as verified (BRIEF 2). */
+  QUOTE_MATCH_MIN: z.coerce.number().min(0).max(1).default(0.9),
 };
 
 export const configSchema = z.object(baseShape).superRefine((cfg, ctx) => {

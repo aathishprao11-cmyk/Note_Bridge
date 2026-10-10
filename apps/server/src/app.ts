@@ -109,7 +109,7 @@ export async function buildApp({ config, importer, agent }: BuildOptions): Promi
 
   // Contract routes (docs/API.md). Stubs read what `pnpm seed` loaded and validate every response.
   registerCourseRoutes(app, db);
-  registerAlignmentRoutes(app, db, runner);
+  registerAlignmentRoutes(app, db, runner, { edgeMinConfidence: config.EDGE_MIN_CONFIDENCE });
   registerDocumentRoutes(app, db);
   // Chat: the contract stub keeps GET /chat/examples; POST /chat is the Study Agent (Laptop B).
   registerChatRoutes(app, db, { post: false });

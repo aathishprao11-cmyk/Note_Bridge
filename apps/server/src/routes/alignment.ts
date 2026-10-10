@@ -17,7 +17,7 @@ import {
   type AlignmentEdge,
 } from '@gyan/core';
 import type { Db } from '../db';
-import { coverageFor } from './coverage-stub';
+import { courseOfUnit, loadAlignmentState, syncFlags } from './alignment-state';
 import type { JobRunner } from '../jobs';
 import {
   badRequest,
@@ -32,11 +32,17 @@ import {
 } from './shared';
 
 /**
- * Alignment routes (Laptop A). STUB STATUS: they read what `pnpm seed` loaded; PATCH really
- * persists the student's correction, but POST /align only runs a placeholder job until the
- * alignment engine (Phase 1b) replaces it. The contract does not change when that happens.
+ * Alignment routes (Laptop A). Edges, flags and coverage are computed from the stored rows, and
+ * PATCH persists the student's correction. Only POST /align is still a placeholder job: the
+ * alignment engine that WRITES new edges (Phase 1b) does not exist yet, so edges come from the
+ * seeded demo course. The contract does not change when it lands.
  */
-export function registerAlignmentRoutes(app: FastifyInstance, db: Db, runner: JobRunner) {
+export function registerAlignmentRoutes(
+  app: FastifyInstance,
+  db: Db,
+  runner: JobRunner,
+  opts: { edgeMinConfidence: number },
+) {
   const unitsFor = (courseId: string): UnitRow[] =>
     db
       .prepare(
@@ -88,19 +94,11 @@ export function registerAlignmentRoutes(app: FastifyInstance, db: Db, runner: Jo
     let units = unitsFor(courseId);
     if (q.documentId) units = units.filter((u) => u.document_id === q.documentId);
     const unitIds = new Set(units.map((u) => u.id));
-    const flagged = new Set(
-      (db.prepare('SELECT unit_id FROM unit_flags').all() as Array<{ unit_id: string }>).map(
-        (f) => f.unit_id,
-      ),
-    );
-    const bookOnlyIds = (
-      db
-        .prepare(
-          `SELECT f.chunk_id FROM chunk_flags f JOIN chunks c ON c.id = f.chunk_id
-           JOIN documents d ON d.id = c.document_id WHERE d.course_id = ?`,
-        )
-        .all(courseId) as Array<{ chunk_id: string }>
-    ).map((f) => f.chunk_id);
+    // Flags are computed from the stored edges (BRIEF 9.4), never read from a fixture: a unit with
+    // no counted edge is professor_only, a book chunk no unit touches is book_only.
+    const state = loadAlignmentState(db, courseId, opts.edgeMinConfidence);
+    const flagged = state.professorOnlyUnitIds;
+    const bookOnlyIds = [...state.bookOnlyChunkIds];
 
     // Counts ignore the filters so the filter bar can show what each choice would reveal.
     const all = (
@@ -202,6 +200,9 @@ export function registerAlignmentRoutes(app: FastifyInstance, db: Db, runner: Jo
       }
       throw err;
     }
+    // A correction can change which units and chunks are flagged; keep the flag tables current.
+    const courseId = courseOfUnit(db, edge.unitId);
+    if (courseId) syncFlags(db, courseId, opts.edgeMinConfidence);
     return send(reply, PatchEdgeResponse, getEdge(edge.id));
   });
 
@@ -250,14 +251,15 @@ export function registerAlignmentRoutes(app: FastifyInstance, db: Db, runner: Jo
     });
   });
 
-  // STUB: returns the coverage numbers loaded with the demo fixtures, not a live computation.
-  // The real aggregation (BRIEF 9.4) is Phase 1b; it must return this same shape.
+  // Computed from the stored edges on every request (BRIEF 9.4). Only edges that are confident,
+  // not rejected and quote-verified count; confirmed and remapped edges always count.
   app.get('/api/courses/:id/coverage', async (req, reply) => {
     const params = CourseParams.safeParse(req.params);
     if (!params.success) return badRequest(reply, params.error);
     if (!courseExists(db, params.data.id)) {
       return fail(reply, 404, 'course_not_found', `No course with id "${params.data.id}"`);
     }
-    return send(reply, CoverageResponse, coverageFor(params.data.id));
+    const { report } = loadAlignmentState(db, params.data.id, opts.edgeMinConfidence);
+    return send(reply, CoverageResponse, report);
   });
 }

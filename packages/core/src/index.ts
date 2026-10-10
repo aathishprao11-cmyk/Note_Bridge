@@ -9,3 +9,4 @@ export * from './ingest';
 
 export * from './api-contract';
 export * from './fixtures';
+export * from './align';

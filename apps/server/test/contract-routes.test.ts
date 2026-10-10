@@ -90,7 +90,7 @@ describe('alignment routes: read', () => {
     const all = AlignmentResponse.parse((await get(app, url(''))).json());
     expect(all.units).toHaveLength(12);
     expect(all.edges).toHaveLength(demo.edges.length);
-    expect(all.counts).toMatchObject({ professor_only: 2, book_only: 3 });
+    expect(all.counts).toMatchObject({ professor_only: 2, book_only: 4 });
     expect(all.counts.covers + all.counts.extends + all.counts.conflicts).toBe(demo.edges.length);
     for (const e of all.edges) expect(all.chunks[e.chunkId]).toBeDefined();
     await app.close();
