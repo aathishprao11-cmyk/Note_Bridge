@@ -32,7 +32,7 @@ describe('ingest routes: jobs and SSE', () => {
     const up = await app.inject({
       method: 'POST',
       url: '/api/courses/course1/documents',
-      ...multipart({ role: 'book' }, { name: 'book.pdf', bytes: await samplePdf() }),
+      ...multipart({ kind: 'book' }, { name: 'book.pdf', bytes: await samplePdf() }),
     });
     const res = await fetch(`http://127.0.0.1:${port}/api/jobs/${up.json().jobId}/events`);
     expect(res.headers.get('content-type')).toContain('text/event-stream');
@@ -55,7 +55,7 @@ describe('ingest routes: jobs and SSE', () => {
     const up = await app.inject({
       method: 'POST',
       url: '/api/courses/course1/documents',
-      ...multipart({ role: 'book' }, { name: 'book.pdf', bytes: await samplePdf() }),
+      ...multipart({ kind: 'book' }, { name: 'book.pdf', bytes: await samplePdf() }),
     });
     await runner.idle();
     const res = await fetch(`http://127.0.0.1:${port}/api/jobs/${up.json().jobId}/events`);
@@ -74,7 +74,7 @@ describe('ingest routes: jobs and SSE', () => {
     const up = await app.inject({
       method: 'POST',
       url: '/api/courses/course1/documents',
-      ...multipart({ role: 'book' }, { name: 'bad.pdf', bytes: new Uint8Array([1, 2, 3, 4]) }),
+      ...multipart({ kind: 'book' }, { name: 'bad.pdf', bytes: new Uint8Array([1, 2, 3, 4]) }),
     });
     const res = await fetch(`http://127.0.0.1:${port}/api/jobs/${up.json().jobId}/events`);
     const events = parseSse(await res.text());

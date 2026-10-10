@@ -20,6 +20,10 @@ import {
   type PluginImporter,
 } from './plugins/loader';
 import { placeholderGrounding, placeholderRetrieval } from './plugins/placeholder-services';
+import { registerAlignmentRoutes } from './routes/alignment';
+import { registerChatRoutes } from './routes/chat';
+import { registerCourseRoutes } from './routes/courses';
+import { registerDocumentRoutes } from './routes/documents';
 import { registerIngestRoutes } from './routes/ingest';
 import { createSandbox, type Sandbox } from './sandbox';
 
@@ -99,6 +103,12 @@ export async function buildApp({ config, importer }: BuildOptions): Promise<Buil
     bus,
     jobs,
   });
+
+  // Contract routes (docs/API.md). Stubs read what `pnpm seed` loaded and validate every response.
+  registerCourseRoutes(app, db);
+  registerAlignmentRoutes(app, db, runner);
+  registerDocumentRoutes(app, db);
+  registerChatRoutes(app, db);
 
   app.get('/api/health', async () => ({
     ok: true,

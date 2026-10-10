@@ -9,7 +9,7 @@ describe('ingest routes: upload', () => {
       method: 'POST',
       url: '/api/courses/course1/documents',
       ...multipart(
-        { role: 'book', title: 'Physics Book' },
+        { kind: 'book', title: 'Physics Book' },
         { name: 'book.pdf', bytes: await samplePdf() },
       ),
     });
@@ -39,7 +39,7 @@ describe('ingest routes: upload', () => {
       app.inject({
         method: 'POST',
         url: '/api/courses/course1/documents',
-        ...multipart({ role: 'book' }, { name: 'book.pdf', bytes }),
+        ...multipart({ kind: 'book' }, { name: 'book.pdf', bytes }),
       });
     const first = (await send()).json();
     await runner.idle();
@@ -54,7 +54,7 @@ describe('ingest routes: upload', () => {
     await app.inject({
       method: 'POST',
       url: '/api/courses/course1/documents',
-      ...multipart({ role: 'slides' }, { name: 'lecture-1.pdf', bytes: await samplePdf() }),
+      ...multipart({ kind: 'slides' }, { name: 'lecture-1.pdf', bytes: await samplePdf() }),
     });
     await runner.idle();
     const list = await app.inject({ method: 'GET', url: '/api/courses/course1/documents' });
@@ -66,14 +66,14 @@ describe('ingest routes: upload', () => {
     [
       'unknown course',
       '/api/courses/nope/documents',
-      { role: 'book' },
+      { kind: 'book' },
       true,
       404,
       'course_not_found',
     ],
-    ['missing file', '/api/courses/course1/documents', { role: 'book' }, false, 400, 'no_file'],
-    ['bad role', '/api/courses/course1/documents', { role: 'poster' }, true, 400, 'bad_role'],
-    ['missing role', '/api/courses/course1/documents', {}, true, 400, 'bad_role'],
+    ['missing file', '/api/courses/course1/documents', { kind: 'book' }, false, 400, 'no_file'],
+    ['bad kind', '/api/courses/course1/documents', { kind: 'poster' }, true, 400, 'bad_kind'],
+    ['missing kind', '/api/courses/course1/documents', {}, true, 400, 'bad_kind'],
   ])('rejects %s with a typed error', async (_name, url, fields, withFile, status, code) => {
     const { app } = await appWithCourse();
     const file = withFile ? { name: 'a.pdf', bytes: new Uint8Array([1, 2, 3]) } : undefined;
@@ -88,7 +88,7 @@ describe('ingest routes: upload', () => {
     const up = await app.inject({
       method: 'POST',
       url: '/api/courses/course1/documents',
-      ...multipart({ role: 'book' }, { name: 'bad.pdf', bytes: new Uint8Array([1, 2, 3, 4]) }),
+      ...multipart({ kind: 'book' }, { name: 'bad.pdf', bytes: new Uint8Array([1, 2, 3, 4]) }),
     });
     await runner.idle();
     const job = await app.inject({ method: 'GET', url: `/api/jobs/${up.json().jobId}` });

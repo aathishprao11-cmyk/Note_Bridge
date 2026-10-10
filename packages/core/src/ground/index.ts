@@ -21,3 +21,13 @@ export interface GroundingService {
 
 /** Phase 0 name, kept as an alias. */
 export type Grounder = GroundingService;
+
+/** Starting weights from BRIEF 9.3. They belong in config and get tuned with the eval harness. */
+export const DEFAULT_CONFIDENCE_WEIGHTS = {
+  retrieval: 0.3,
+  quote: 0.25,
+  judgeAgreement: 0.2,
+  top1Gap: 0.1,
+  extractionQuality: 0.1,
+  llmSelfReport: 0.05,
+} as const;

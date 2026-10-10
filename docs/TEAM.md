@@ -8,9 +8,11 @@ Two people build this through GitHub. Each laptop owns a set of folders and neve
 
 - `packages/core/**`
 - `eval/**`
+- `samples/**`
 - `apps/server/src/db/**`
 - `apps/server/src/jobs/**`
-- alignment routes
+- `apps/server/src/routes/**` (all routes, including alignment)
+- `apps/server/src/app.ts`, `apps/server/src/seed.ts`
 - `packages/features/problem-finder/**`
 - `packages/features/handwriting-repair/**`
 
@@ -21,7 +23,7 @@ Two people build this through GitHub. Each laptop owns a set of folders and neve
 - `apps/server/src/sandbox/**`
 - `packages/features/*` except `problem-finder` and `handwriting-repair`
 
-### Shared files (change rarely, tell the other person)
+### Shared files (change rarely, announce first)
 
 - root `package.json`
 - `pnpm-lock.yaml`
@@ -29,19 +31,12 @@ Two people build this through GitHub. Each laptop owns a set of folders and neve
 - `.env.example`
 - `packages/core/src/api-contract.ts`
 - `packages/core/src/types.ts`
+- `.github/CODEOWNERS`
 
-Note: `api-contract.ts` and `types.ts` sit inside `packages/core/**`, which Laptop A owns. Because
-they are shared, Laptop B asks for changes through `docs/CONTRACT_REQUESTS.md` and Laptop A applies
-them (or both agree in a PR).
-
-### Not covered by the ownership list (provisional, confirm or change)
-
-| Path                                                                                  | Provisional owner       | Why                                                      |
-| ------------------------------------------------------------------------------------- | ----------------------- | -------------------------------------------------------- |
-| Upload and job-progress routes (`/api/courses/:id/documents`, `/api/jobs/:id/events`) | Laptop A                | They start and report ingestion, which Engine owns       |
-| `samples/**`                                                                          | Laptop A                | Ingestion and eval both use it                           |
-| `apps/server/src/{app,index,config,seed}.ts`, `plugins/`                              | Laptop A (tell B)       | Server wiring; Experience needs the plugin loader stable |
-| `docs/**`, `.github/**`, `README.md`                                                  | either (tell the other) | Documentation and CI                                     |
+`api-contract.ts` and `types.ts` sit inside `packages/core/**`, which Laptop A owns. Because they are
+shared, Laptop B asks for changes through `docs/CONTRACT_REQUESTS.md` and Laptop A applies them (or
+both agree in a PR). Everything in `docs/**` and `.github/**` not listed above: either laptop may
+edit, and says so in the commit message.
 
 ## Rules
 
@@ -65,6 +60,22 @@ Migrations are append-only and numbered; never edit an applied migration, add a 
 If `pnpm-lock.yaml` conflicts while rebasing: take `origin/main`'s version
 (`git checkout origin/main -- pnpm-lock.yaml`), run `pnpm install`, and commit the result.
 
+## Building against the frozen contract (Laptop B)
+
+You do not need the engine to build every screen:
+
+```bash
+pnpm install
+pnpm seed            # loads the demo course into ./data/gyan.db (idempotent; --reset to restore)
+pnpm dev             # server :3001, web :5173
+```
+
+- Request/response shapes: `packages/core/src/api-contract.ts` (zod) and `docs/API.md`.
+- Entity types: `packages/core/src/types.ts`. Import both from `@gyan/core`.
+- Demo data: `packages/core/src/fixtures/*.json` (do not edit; ask in `CONTRACT_REQUESTS.md`).
+- Stub routes read the seeded database and validate every response against the contract, so what
+  you see is exactly what the real engine will return. `PATCH /api/edges/:id` really saves edits.
+
 ## First-time setup on the other laptop
 
 ```bash
@@ -75,6 +86,7 @@ npm i -g pnpm      # or: corepack enable
 pnpm install
 cp .env.example .env     # PowerShell: Copy-Item .env.example .env
 pnpm test
+pnpm seed
 pnpm dev                 # server :3001, web :5173
 ```
 

@@ -1,10 +1,15 @@
 import multipart from '@fastify/multipart';
 import type { FastifyInstance } from 'fastify';
-import type { SourceRole } from '@gyan/core';
+import { DocumentKindSchema, type DocumentKind, type SourceRole } from '@gyan/core';
 import type { JobRepository } from '../db/repositories/jobs';
 import { startIngest, type IngestDeps, type ProgressBus } from '../jobs';
 
-const ROLES = new Set<SourceRole>(['book', 'slides', 'notes']);
+/** The upload field is `kind` (Section 5). The pipeline ingests these three; the rest come later. */
+const KIND_TO_ROLE: Partial<Record<DocumentKind, SourceRole>> = {
+  book: 'book',
+  slides: 'slides',
+  handwritten: 'notes',
+};
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 
 export interface IngestRouteDeps {
@@ -64,9 +69,23 @@ export async function registerIngestRoutes(app: FastifyInstance, deps: IngestRou
       }
       if (!bytes || bytes.length === 0)
         return fail(reply, 400, 'no_file', 'Attach a non-empty file');
-      const role = fields.role as SourceRole | undefined;
-      if (!role || !ROLES.has(role)) {
-        return fail(reply, 400, 'bad_role', 'role must be one of: book, slides, notes');
+      const kind = DocumentKindSchema.safeParse(fields.kind);
+      if (!kind.success) {
+        return fail(
+          reply,
+          400,
+          'bad_kind',
+          'kind must be one of: book, slides, handwritten, past_paper, syllabus, text_note',
+        );
+      }
+      const role = KIND_TO_ROLE[kind.data];
+      if (!role) {
+        return fail(
+          reply,
+          422,
+          'kind_not_supported_yet',
+          `Uploading "${kind.data}" is not supported yet; use book, slides or handwritten.`,
+        );
       }
       const title = (fields.title ?? '').trim() || filename.replace(/\.[^.]+$/, '') || 'Untitled';
       const started = startIngest(deps.ingest, { courseId, role, title, bytes });

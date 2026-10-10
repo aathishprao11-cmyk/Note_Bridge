@@ -1,0 +1,116 @@
+{
+  "chunks": [
+    {
+      "id": "chk_01",
+      "sectionId": "sec_1_1",
+      "kind": "definition",
+      "page": 4,
+      "text": "Definition. The average velocity of an object over a time interval is its displacement divided by the elapsed time: v_avg = Δx / Δt. Velocity is a vector, so its sign gives the direction of motion along the axis."
+    },
+    {
+      "id": "chk_02",
+      "sectionId": "sec_1_1",
+      "kind": "text",
+      "page": 5,
+      "text": "The instantaneous velocity is the limit of the average velocity as the time interval shrinks to zero, v = dx/dt. Acceleration is the rate of change of velocity, a = dv/dt, and it is also a vector quantity."
+    },
+    {
+      "id": "chk_03",
+      "sectionId": "sec_1_2",
+      "kind": "formula",
+      "page": 6,
+      "text": "For constant acceleration the velocity changes linearly with time: v = v0 + a t, where v0 is the velocity at t = 0 and v is the velocity at time t."
+    },
+    {
+      "id": "chk_04",
+      "sectionId": "sec_1_2",
+      "kind": "text",
+      "page": 6,
+      "text": "The position then follows x = x0 + v0 t + (1/2) a t². Eliminating time between these equations gives v² = v0² + 2 a (x − x0), which links velocity and displacement directly."
+    },
+    {
+      "id": "chk_05",
+      "sectionId": "sec_1_2",
+      "kind": "example",
+      "page": 7,
+      "text": "Example 1.4 Free fall. A stone is released from rest. Taking upward as the positive direction, its acceleration is a = −g = −9.8 m/s², so its velocity becomes more negative as it falls."
+    },
+    {
+      "id": "chk_06",
+      "sectionId": "sec_1_2",
+      "kind": "exercise",
+      "page": 8,
+      "text": "Exercise 1.1 A ball is dropped from rest from a height of 20 m. How long does it take to reach the ground? Take g = 9.8 m/s²."
+    },
+    {
+      "id": "chk_07",
+      "sectionId": "sec_1_2",
+      "kind": "exercise",
+      "page": 8,
+      "text": "Exercise 1.2 A car moving at 10 m/s accelerates uniformly at 2 m/s² for 5 s. Find its final speed and the distance it covers."
+    },
+    {
+      "id": "chk_08",
+      "sectionId": "sec_2_1",
+      "kind": "definition",
+      "page": 9,
+      "text": "Definition. Newton's first law: an object at rest stays at rest, and an object in uniform motion stays in uniform motion along a straight line, unless a net external force acts on it."
+    },
+    {
+      "id": "chk_09",
+      "sectionId": "sec_2_1",
+      "kind": "text",
+      "page": 10,
+      "text": "A frame of reference in which the first law holds is called an inertial frame. Any frame moving at constant velocity relative to an inertial frame is also inertial."
+    },
+    {
+      "id": "chk_10",
+      "sectionId": "sec_2_2",
+      "kind": "formula",
+      "page": 11,
+      "text": "Newton's second law: the net force on an object equals its mass times its acceleration, ΣF = m a. The acceleration points in the same direction as the net force."
+    },
+    {
+      "id": "chk_11",
+      "sectionId": "sec_2_2",
+      "kind": "text",
+      "page": 12,
+      "text": "In its more general form the second law reads ΣF = dp/dt, where p = m v is the momentum. This reduces to ΣF = m a when the mass is constant."
+    },
+    {
+      "id": "chk_12",
+      "sectionId": "sec_2_2",
+      "kind": "example",
+      "page": 12,
+      "text": "Example 2.3 A 5 kg crate is pulled by a rope with a net force of 20 N. Its acceleration is a = F/m = 4 m/s²."
+    },
+    {
+      "id": "chk_13",
+      "sectionId": "sec_2_2",
+      "kind": "exercise",
+      "page": 12,
+      "text": "Exercise 2.1 A 2 kg mass accelerates at 3 m/s². Find the net force acting on it."
+    },
+    {
+      "id": "chk_14",
+      "sectionId": "sec_2_2",
+      "kind": "exercise",
+      "page": 12,
+      "text": "Exercise 2.2 Prove that an object moving at constant velocity has zero net force acting on it."
+    },
+    {
+      "id": "chk_15",
+      "sectionId": "sec_2_3",
+      "kind": "definition",
+      "page": 13,
+      "text": "Definition. Friction is the contact force that opposes relative sliding between two surfaces. Its magnitude is f = μ N, where μ is the coefficient of friction and N is the normal force."
+    },
+    {
+      "id": "chk_16",
+      "sectionId": "sec_2_3",
+      "kind": "text",
+      "page": 14,
+      "text": "Static friction adjusts up to a maximum value μs N to prevent sliding, while kinetic friction has the constant magnitude μk N once the surfaces slide, and μk is usually smaller than μs."
+    }
+  ]
+}

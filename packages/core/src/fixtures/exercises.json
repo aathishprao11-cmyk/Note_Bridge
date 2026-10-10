@@ -1,0 +1,64 @@
+{
+  "exercises": [
+    {
+      "id": "ex_1_1",
+      "documentId": "doc_book",
+      "chunkId": "chk_06",
+      "label": "Exercise 1.1",
+      "statement": "A ball is dropped from rest from a height of 20 m. How long does it take to reach the ground? Take g = 9.8 m/s².",
+      "hasSolution": false,
+      "solution": null,
+      "page": 8,
+      "printedPage": 5,
+      "difficulty": 0.25,
+      "level": "standard",
+      "topicTags": ["free fall", "kinematics"],
+      "verifiable": true
+    },
+    {
+      "id": "ex_1_2",
+      "documentId": "doc_book",
+      "chunkId": "chk_07",
+      "label": "Exercise 1.2",
+      "statement": "A car moving at 10 m/s accelerates uniformly at 2 m/s² for 5 s. Find its final speed and the distance it covers.",
+      "hasSolution": true,
+      "solution": "v = v0 + a t = 10 + 2 × 5 = 20 m/s. x = v0 t + (1/2) a t² = 10 × 5 + 0.5 × 2 × 25 = 75 m.",
+      "page": 8,
+      "printedPage": 5,
+      "difficulty": 0.35,
+      "level": "standard",
+      "topicTags": ["constant acceleration"],
+      "verifiable": true
+    },
+    {
+      "id": "ex_2_1",
+      "documentId": "doc_book",
+      "chunkId": "chk_13",
+      "label": "Exercise 2.1",
+      "statement": "A 2 kg mass accelerates at 3 m/s². Find the net force acting on it.",
+      "hasSolution": true,
+      "solution": "ΣF = m a = 2 × 3 = 6 N.",
+      "page": 12,
+      "printedPage": 9,
+      "difficulty": 0.2,
+      "level": "intro",
+      "topicTags": ["newton second law"],
+      "verifiable": true
+    },
+    {
+      "id": "ex_2_2",
+      "documentId": "doc_book",
+      "chunkId": "chk_14",
+      "label": "Exercise 2.2",
+      "statement": "Prove that an object moving at constant velocity has zero net force acting on it.",
+      "hasSolution": false,
+      "solution": null,
+      "page": 12,
+      "printedPage": 9,
+      "difficulty": 0.5,
+      "level": "standard",
+      "topicTags": ["newton first law", "proof"],
+      "verifiable": false
+    }
+  ]
+}

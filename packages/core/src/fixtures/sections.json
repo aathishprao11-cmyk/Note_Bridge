@@ -1,0 +1,74 @@
+{
+  "sections": [
+    {
+      "id": "sec_ch1",
+      "documentId": "doc_book",
+      "parentId": null,
+      "title": "1 Kinematics",
+      "level": 1,
+      "pageStart": 4,
+      "pageEnd": 8,
+      "summary": "Describing motion in one dimension: velocity, acceleration and the constant-acceleration equations."
+    },
+    {
+      "id": "sec_1_1",
+      "documentId": "doc_book",
+      "parentId": "sec_ch1",
+      "title": "1.1 Velocity and acceleration",
+      "level": 2,
+      "pageStart": 4,
+      "pageEnd": 5,
+      "summary": "Defines average and instantaneous velocity and acceleration."
+    },
+    {
+      "id": "sec_1_2",
+      "documentId": "doc_book",
+      "parentId": "sec_ch1",
+      "title": "1.2 Motion with constant acceleration",
+      "level": 2,
+      "pageStart": 6,
+      "pageEnd": 8,
+      "summary": "The kinematic equations, a free-fall example and practice exercises."
+    },
+    {
+      "id": "sec_ch2",
+      "documentId": "doc_book",
+      "parentId": null,
+      "title": "2 Newton's Laws",
+      "level": 1,
+      "pageStart": 9,
+      "pageEnd": 14,
+      "summary": "Force and motion: the first and second laws, and friction."
+    },
+    {
+      "id": "sec_2_1",
+      "documentId": "doc_book",
+      "parentId": "sec_ch2",
+      "title": "2.1 Force and the first law",
+      "level": 2,
+      "pageStart": 9,
+      "pageEnd": 10,
+      "summary": "States Newton's first law and introduces inertial frames."
+    },
+    {
+      "id": "sec_2_2",
+      "documentId": "doc_book",
+      "parentId": "sec_ch2",
+      "title": "2.2 Newton's second law",
+      "level": 2,
+      "pageStart": 11,
+      "pageEnd": 12,
+      "summary": "Net force equals mass times acceleration, its momentum form, and worked problems."
+    },
+    {
+      "id": "sec_2_3",
+      "documentId": "doc_book",
+      "parentId": "sec_ch2",
+      "title": "2.3 Friction",
+      "level": 2,
+      "pageStart": 13,
+      "pageEnd": 14,
+      "summary": "Static and kinetic friction and the coefficient of friction."
+    }
+  ]
+}

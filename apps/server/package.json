@@ -16,7 +16,8 @@
     "@gyan/feature-verifier": "workspace:*",
     "better-sqlite3": "^13.0.3",
     "dotenv": "^17.0.0",
-    "fastify": "^5.0.0"
+    "fastify": "^5.0.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

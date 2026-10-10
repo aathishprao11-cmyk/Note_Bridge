@@ -1,0 +1,80 @@
+{
+  "coverage": {
+    "courseId": "course_demo",
+    "edgeMinConfidence": 0.5,
+    "chapters": [
+      {
+        "documentId": "doc_book",
+        "chapter": "1 Kinematics",
+        "totalPages": 5,
+        "matchedPages": 4,
+        "coverage": 0.8,
+        "bookOnlySections": 0,
+        "bookOnlyChunks": 0,
+        "conflicts": 3,
+        "lowConfidenceEdges": 2
+      },
+      {
+        "documentId": "doc_book",
+        "chapter": "2 Newton's Laws",
+        "totalPages": 6,
+        "matchedPages": 3,
+        "coverage": 0.5,
+        "bookOnlySections": 0,
+        "bookOnlyChunks": 3,
+        "conflicts": 1,
+        "lowConfidenceEdges": 1
+      }
+    ],
+    "totals": {
+      "units": 12,
+      "unitsWithEdges": 10,
+      "professorOnlyUnits": 2,
+      "bookOnlyChunks": 3,
+      "conflicts": 4,
+      "lowConfidenceEdges": 3
+    },
+    "readingPaths": [
+      {
+        "unitId": "unit_01",
+        "pages": [{ "documentId": "doc_book", "printedPageStart": 1, "printedPageEnd": 2 }]
+      },
+      {
+        "unitId": "unit_02",
+        "pages": [{ "documentId": "doc_book", "printedPageStart": 3, "printedPageEnd": 3 }]
+      },
+      {
+        "unitId": "unit_03",
+        "pages": [{ "documentId": "doc_book", "printedPageStart": 2, "printedPageEnd": 2 }]
+      },
+      {
+        "unitId": "unit_04",
+        "pages": [{ "documentId": "doc_book", "printedPageStart": 3, "printedPageEnd": 3 }]
+      },
+      {
+        "unitId": "unit_05",
+        "pages": [{ "documentId": "doc_book", "printedPageStart": 4, "printedPageEnd": 4 }]
+      },
+      {
+        "unitId": "unit_06",
+        "pages": [{ "documentId": "doc_book", "printedPageStart": 6, "printedPageEnd": 6 }]
+      },
+      {
+        "unitId": "unit_07",
+        "pages": [{ "documentId": "doc_book", "printedPageStart": 8, "printedPageEnd": 8 }]
+      },
+      {
+        "unitId": "unit_08",
+        "pages": [{ "documentId": "doc_book", "printedPageStart": 11, "printedPageEnd": 11 }]
+      },
+      {
+        "unitId": "unit_09",
+        "pages": [{ "documentId": "doc_book", "printedPageStart": 1, "printedPageEnd": 1 }]
+      },
+      {
+        "unitId": "unit_11",
+        "pages": [{ "documentId": "doc_book", "printedPageStart": 8, "printedPageEnd": 8 }]
+      }
+    ]
+  }
+}

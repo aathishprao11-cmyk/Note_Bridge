@@ -9,6 +9,8 @@
 /apps/server/src/db/                         @aathishprao11-cmyk
 /apps/server/src/jobs/                       @aathishprao11-cmyk
 /apps/server/src/routes/                     @aathishprao11-cmyk
+/apps/server/src/app.ts                      @aathishprao11-cmyk
+/apps/server/src/seed.ts                     @aathishprao11-cmyk
 /packages/features/problem-finder/           @aathishprao11-cmyk
 /packages/features/handwriting-repair/       @aathishprao11-cmyk
 
@@ -32,3 +34,4 @@
 /packages/core/src/api-contract.ts           @aathishprao11-cmyk @LAPTOP_B_GITHUB
 /packages/core/src/types.ts                  @aathishprao11-cmyk @LAPTOP_B_GITHUB
 /.github/                                    @aathishprao11-cmyk @LAPTOP_B_GITHUB
+/.github/CODEOWNERS                          @aathishprao11-cmyk @LAPTOP_B_GITHUB

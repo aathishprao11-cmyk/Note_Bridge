@@ -1,7 +1,7 @@
 # Contract requests
 
 Use this file when you need a change in a file the other laptop owns (see `docs/TEAM.md`).
-Add a new entry at the top. The owner replies in the entry and moves it to "Done" when applied.
+Add a new entry at the top of "Open". The owner replies in the entry and moves it to "Done".
 
 Entry format:
 
@@ -14,38 +14,78 @@ Entry format:
 
 ## Open
 
-### Confirm owners of upload and job routes, `samples/`, server wiring (from Laptop A, 2026-10-10)
+### FYI for Laptop B: contract freeze (from Laptop A, 2026-10-10)
 
-- File(s): `apps/server/src/routes/*` (upload, job events), `samples/**`, `apps/server/src/{app,index,config,seed}.ts`
-- Change wanted: the ownership list does not name these. Laptop A is treating them as Engine
-  (provisional, see `docs/TEAM.md`). Laptop B: reply here if you disagree.
-- Status: open
+Breaking changes for anything already written against Phase 0 / 1a:
 
-### `docs/BRIEF.md` is still a placeholder (from Laptop A, 2026-10-10)
-
-- File(s): `docs/BRIEF.md`
-- Change wanted: the full brief has not been saved yet, so Phase 1a was built from the plan in
-  conversation rather than from Section 7. Paste the brief so it can be checked against the code.
-- Status: open
-
-### FYI for Laptop B: Phase 1a changes to shared files (from Laptop A, 2026-10-10)
-
-- `packages/core/src/providers/llm.ts`: `LLMProvider` gained an optional `vision()` method (used for
-  scanned pages and handwritten notes). `MockProvider` implements it. No existing caller breaks.
-- `apps/server/src/db/migrations/002_ingest.sql`: new columns on `documents` (status, warnings,
-  page_quality, ...), `sections`/`chunks` (ordinal, exception) and `jobs` (document_id, error).
-  `types.ts` was NOT changed, so these are not on the shared types yet. If the UI needs
-  `warnings` or per-page quality, ask here and Laptop A will add them to `types.ts` and the API.
-- Root files: `pnpm-lock.yaml` changed (new dependencies `pdfjs-dist`, `pdf-lib`,
-  `@fastify/multipart`). Run `pnpm install` after pulling.
-- New routes: see "Implemented (Phase 1a)" in `docs/API.md`.
+- `Document.role` is now `Document.kind` (`book | slides | handwritten | past_paper | syllabus |
+text_note`). Upload field `role` is now `kind`; `notes` is now `handwritten`.
+- Relation `same` is now `covers`. Edges are now `AlignmentEdge` (unit -> chunk, with `signals`,
+  evidence quotes, `claimVerdict`, `conflictType`, `userStatus`), not section -> section.
+- `GyanPlugin` is now `FeaturePlugin`; `PluginContext` matches BRIEF Section 6 (`db`, `llm`,
+  `embeddings`, `vector`, `retrieve`, `ground`, `logger`, `config`, `addRoutes`, `addAgentTool`,
+  `addUiPanel`, `addJobHandler`, `on`). A plugin's `register(ctx)` calls `ctx.addRoutes(...)`
+  instead of returning routes. Routes mount at `/api/features/<id>/...` (was `/api/plugins/<id>`).
+  `ctx.retrieve` currently always abstains and `ctx.ground` does only model-free checks (honest
+  placeholders until Phase 1b).
+- Shared files touched: `packages/core/src/types.ts`, `plugin.ts`, `api-contract.ts` (new),
+  `packages/core/package.json` (fastify dev dependency for plugin types), `pnpm-lock.yaml`.
+  Run `pnpm install` after pulling.
+- To build screens: `pnpm seed`, then see "Building against the frozen contract" in `TEAM.md`.
 - Status: open (read and reply when seen)
+
+### Schema reconciliation: brief Section 5 vs what existed (from Laptop A, 2026-10-10)
+
+Migration `003_contract.sql` only adds; `001` and `002` are untouched. Conflicts found:
+
+1. **`edges` vs `alignment_edges`.** The Phase 0 `edges` table linked sections to sections with
+   relations `same/extends/conflicts/professor_only/book_only`. The brief's `alignment_edges` links a
+   lecture unit to a chunk, has only `covers/extends/conflicts`, and stores professor_only/book_only
+   as separate flag tables. Resolution: new `alignment_edges`, `unit_flags`, `chunk_flags`,
+   `feedback`. Old `edges` is left in place, unused (SQLite cannot cleanly drop a table that other
+   migrations reference; harmless).
+2. **`documents.role` vs `kind`.** `role` has a NOT NULL CHECK (`book|slides|notes`) that cannot be
+   relaxed without rebuilding the table. Resolution: new `kind` column is the source of truth;
+   `role` stays as the ingestion pipeline's view (`handwritten` -> `notes`). Only the three
+   ingestible kinds can be stored until a later migration rebuilds `documents`.
+3. **`book_chunks` vs `chunks`.** The brief names the table `book_chunks` and has
+   `chapter, section, pdf_page_start/end, printed_page_start/end, chunk_type, embedding`. We kept
+   the name `chunks` (renaming churns Phase 1a code); chapter/section come from `sections` via
+   `section_id`; added `pdf_page_end`, `printed_page_start`, `printed_page_end`; `kind` is the
+   chunk type; embeddings stay in the `embeddings` table. **Differences:** chunk type `solution` is
+   not stored (solutions live on `exercises`), and `formula` chunks are not yet produced by Phase 1a
+   ingestion.
+4. **`section_summaries` vs `sections.summary`.** Summary text stays on `sections`; its vector goes
+   in new `section_embeddings`. Equivalent, different layout.
+5. **`pages`** is new. Phase 1a stored per-page quality as JSON on `documents.page_quality`; both
+   exist now. Phase 1a ingestion writes `pages` rows (without page text); the seed writes text.
+   `ocr_confidence` and `reextracted` are only filled by the seed until vision re-extraction lands.
+6. **`exercises`** gained `printed_page, difficulty, level, topic_tags, verifiable`. Brief columns
+   named `number`, `text`, `solution_text` are kept as `label`, `statement`, `solution`.
+   Phase 1a does not yet estimate `difficulty` (stays NULL), set `level`, or detect `verifiable`.
+7. **`jobs`**: brief has `type`; we have `kind`. Same meaning, kept.
+8. **Brief tables added with no logic yet:** `lecture_units`, `exercise_matches`,
+   `exercise_progress`, `concepts`, `concept_deps`, `chat_sessions`, `chat_messages`,
+   `verifications`, `llm_cache`, `usage_log`.
+9. **Phase 1a does not yet create `lecture_units`.** Ingesting slides or notes creates sections
+   and chunks, not units. Only the seeded demo has units. Needs a follow-up (Laptop A).
+
+- Status: open (Laptop B: object here if a column name blocks you)
+
+### Stub routes that are not live yet (from Laptop A, 2026-10-10)
+
+`POST /align` (job does nothing), `GET /alignment`, `/edges/:id/signals`, `/units/:id` (read the
+DB, so only the seeded course has data), `GET /coverage` (fixture numbers, not computed),
+`POST /chat` (replays canned answers; Laptop B replaces it with the Study Agent in Phase 2).
+
+- Status: open until Phase 1b / Phase 2
 
 ## Done
 
-_(none yet)_
+- Ownership of upload/job routes, `samples/`, and server wiring: now Laptop A (see `TEAM.md`).
+- `docs/BRIEF.md` saved.
 
-## Contract requests (from Laptop B — Experience)
+## Contract requests (from Laptop B ΓÇö Experience)
 
 Change requests for the **shared** contract. Per `docs/TEAM.md`, Dev B does **not** edit core / db /
 eval or the contract files (`packages/core/src/types.ts`, `docs/API.md`). Anything the Phase 1b
@@ -110,7 +150,7 @@ pre-nested. If nesting is planned, tell me the node shape and I will drop `build
 ### 4. `Section` has no `role` (used to classify book vs professor units)
 
 **Observation:** `Section` carries `documentId` but not the document `role`, so the client must
-join sections → documents to tell book sections from professor units (done in
+join sections ΓåÆ documents to tell book sections from professor units (done in
 `computeCoverage` and the Alignment Map remap list). This works, but if the owner prefers, a
 denormalized `role` on `Section` (or including `role` in the `/sections` payload) would save a
 second round-trip. Non-blocking.

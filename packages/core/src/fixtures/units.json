@@ -1,0 +1,179 @@
+{
+  "units": [
+    {
+      "id": "unit_01",
+      "documentId": "doc_slides",
+      "unitNo": 1,
+      "title": "Position, displacement and velocity",
+      "text": "Position x on an axis. Displacement is the change in position. Average velocity is displacement divided by elapsed time: v_avg = Δx / Δt.",
+      "imagePath": null,
+      "transcription": null,
+      "queryText": "position displacement average velocity Δx / Δt"
+    },
+    {
+      "id": "unit_02",
+      "documentId": "doc_slides",
+      "unitNo": 2,
+      "title": "Notation: s, u, v, a, t",
+      "text": "We write displacement as s, initial velocity as u, final velocity as v. Initial velocity is written u, final velocity v. Acceleration is a and time is t.",
+      "imagePath": null,
+      "transcription": null,
+      "queryText": "notation displacement s initial velocity u final velocity v acceleration a time t"
+    },
+    {
+      "id": "unit_03",
+      "documentId": "doc_slides",
+      "unitNo": 3,
+      "title": "Acceleration",
+      "text": "Acceleration is the rate of change of velocity, a = dv/dt. It is a vector, so its sign matters.",
+      "imagePath": null,
+      "transcription": null,
+      "queryText": "acceleration rate of change of velocity dv/dt vector"
+    },
+    {
+      "id": "unit_04",
+      "documentId": "doc_slides",
+      "unitNo": 4,
+      "title": "Equations of motion",
+      "text": "For constant acceleration: v = u + a t. Also s = u t + a t². And v² = u² + 2 a s.",
+      "imagePath": null,
+      "transcription": null,
+      "queryText": "equations of motion constant acceleration v = u + a t s = u t + a t^2"
+    },
+    {
+      "id": "unit_05",
+      "documentId": "doc_slides",
+      "unitNo": 5,
+      "title": "Free fall",
+      "text": "Free fall: take downward as positive, so a = +g = +9.8 m/s². A dropped stone speeds up: v = g t.",
+      "imagePath": null,
+      "transcription": null,
+      "queryText": "free fall downward positive a = +g 9.8 m/s^2 dropped stone"
+    },
+    {
+      "id": "unit_06",
+      "documentId": "doc_slides",
+      "unitNo": 6,
+      "title": "Newton's first law",
+      "text": "Newton's first law: an object keeps its state of rest or uniform motion unless a net external force acts on it. Inertial frames.",
+      "imagePath": null,
+      "transcription": null,
+      "queryText": "newton first law inertia net external force inertial frame"
+    },
+    {
+      "id": "unit_07",
+      "documentId": "doc_slides",
+      "unitNo": 7,
+      "title": "Newton's second law",
+      "text": "Newton's second law: F = m a. The net force equals mass times acceleration. In general F = dp/dt where p = m v.",
+      "imagePath": null,
+      "transcription": null,
+      "queryText": "newton second law F = m a net force mass acceleration momentum dp/dt"
+    },
+    {
+      "id": "unit_08",
+      "documentId": "doc_slides",
+      "unitNo": 8,
+      "title": "Friction",
+      "text": "Friction: f = μ N. Friction always equals μ N, whether or not the object is sliding.",
+      "imagePath": null,
+      "transcription": null,
+      "queryText": "friction f = μ N coefficient of friction normal force sliding"
+    },
+    {
+      "id": "unit_09",
+      "documentId": "doc_notes",
+      "unitNo": 1,
+      "title": "Velocity is the slope of the x-t graph",
+      "text": "Velocity = slope of the x-t graph. Steeper means faster. Average velocity = Δx / Δt.",
+      "imagePath": null,
+      "transcription": {
+        "lines": [
+          { "text": "Velocity = slope of the x-t graph", "confidence": 0.9, "uncertainSpans": [] },
+          { "text": "Steeper means faster", "confidence": 0.82, "uncertainSpans": [] },
+          {
+            "text": "Average velocity = Δx / Δt",
+            "confidence": 0.6,
+            "uncertainSpans": [{ "start": 19, "end": 26 }]
+          }
+        ]
+      },
+      "queryText": "velocity slope x-t graph average velocity"
+    },
+    {
+      "id": "unit_10",
+      "documentId": "doc_notes",
+      "unitNo": 2,
+      "title": "Trick: area under the v-t graph",
+      "text": "Trick: the area under a v-t graph is the displacement. Count squares on the grid for non-uniform motion.",
+      "imagePath": null,
+      "transcription": {
+        "lines": [
+          {
+            "text": "Trick: the area under a v-t graph is the displacement",
+            "confidence": 0.78,
+            "uncertainSpans": [{ "start": 11, "end": 15 }]
+          },
+          {
+            "text": "Count squares on the grid for non-uniform motion",
+            "confidence": 0.55,
+            "uncertainSpans": [
+              { "start": 0, "end": 5 },
+              { "start": 29, "end": 36 }
+            ]
+          }
+        ]
+      },
+      "queryText": "area under v-t graph displacement count squares"
+    },
+    {
+      "id": "unit_11",
+      "documentId": "doc_notes",
+      "unitNo": 3,
+      "title": "Newton 2: lift example",
+      "text": "Lift accelerating up: T - m g = m a, so T = m (g + a). Net force F = m a again.",
+      "imagePath": null,
+      "transcription": {
+        "lines": [
+          {
+            "text": "Lift accelerating up: T - m g = m a, so T = m (g + a)",
+            "confidence": 0.58,
+            "uncertainSpans": [
+              { "start": 0, "end": 4 },
+              { "start": 22, "end": 26 }
+            ]
+          },
+          {
+            "text": "Net force F = m a again",
+            "confidence": 0.5,
+            "uncertainSpans": [{ "start": 14, "end": 17 }]
+          }
+        ]
+      },
+      "queryText": "lift accelerating tension T - m g = m a net force"
+    },
+    {
+      "id": "unit_12",
+      "documentId": "doc_notes",
+      "unitNo": 4,
+      "title": "Exam hint: pulley systems",
+      "text": "Exam hint: pulley systems with two masses always come up. Draw a free-body diagram for each mass.",
+      "imagePath": null,
+      "transcription": {
+        "lines": [
+          {
+            "text": "Exam hint: pulley systems with two masses always come up",
+            "confidence": 0.7,
+            "uncertainSpans": [{ "start": 11, "end": 18 }]
+          },
+          {
+            "text": "Draw a free-body diagram for each mass",
+            "confidence": 0.74,
+            "uncertainSpans": []
+          }
+        ]
+      },
+      "queryText": "pulley two masses free-body diagram"
+    }
+  ]
+}

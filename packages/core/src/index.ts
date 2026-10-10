@@ -8,3 +8,4 @@ export * from './ground';
 export * from './ingest';
 
 export * from './api-contract';
+export * from './fixtures';

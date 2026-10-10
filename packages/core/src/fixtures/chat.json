@@ -1,0 +1,158 @@
+{
+  "chatExamples": [
+    {
+      "id": "chat_conflict",
+      "title": "Why does my professor's formula differ from the book's?",
+      "question": "Why does my professor's position formula differ from the book's?",
+      "events": [
+        { "type": "session", "sessionId": "sess_demo_1" },
+        {
+          "type": "tool-started",
+          "call": {
+            "name": "get_conflicts",
+            "input": { "topic_or_unit_id": "unit_04" },
+            "summary": "Checking conflicts for 'Equations of motion'"
+          }
+        },
+        {
+          "type": "tool-finished",
+          "ok": true,
+          "call": {
+            "name": "get_conflicts",
+            "input": { "topic_or_unit_id": "unit_04" },
+            "summary": "Found 1 formula conflict"
+          }
+        },
+        {
+          "type": "tool-started",
+          "call": {
+            "name": "get_book_section",
+            "input": { "book_id": "doc_book", "page_start": 6, "page_end": 6 },
+            "summary": "Looked up book page 3"
+          }
+        },
+        {
+          "type": "tool-finished",
+          "ok": true,
+          "call": {
+            "name": "get_book_section",
+            "input": { "book_id": "doc_book", "page_start": 6, "page_end": 6 },
+            "summary": "Looked up book page 3"
+          }
+        },
+        { "type": "text", "delta": "Your slide writes s = u t + a t², " },
+        {
+          "type": "text",
+          "delta": "but the book has x = x0 + v0 t + (1/2) a t² [University Physics, p.3]. "
+        },
+        {
+          "type": "text",
+          "delta": "The slide is missing the factor 1/2. Flag it to your professor; until then follow their version for the exam only if they confirm it."
+        },
+        { "type": "usage", "inputTokens": 1180, "outputTokens": 96 },
+        {
+          "type": "done",
+          "messageId": "msg_demo_1",
+          "content": "Your slide writes s = u t + a t², but the book has x = x0 + v0 t + (1/2) a t² [University Physics, p.3]. The slide is missing the factor 1/2. Flag it to your professor; until then follow their version for the exam only if they confirm it.",
+          "citations": [
+            {
+              "documentId": "doc_book",
+              "chunkId": "chk_04",
+              "page": 6,
+              "printedPage": 3,
+              "quote": "x = x0 + v0 t + (1/2) a t²",
+              "status": "verified"
+            }
+          ],
+          "unverifiedCalculation": false,
+          "abstained": false,
+          "confidence": 0.71
+        }
+      ]
+    },
+    {
+      "id": "chat_abstain",
+      "title": "A question the material does not answer",
+      "question": "What does my textbook say about quantum tunnelling?",
+      "events": [
+        { "type": "session", "sessionId": "sess_demo_2" },
+        {
+          "type": "tool-started",
+          "call": {
+            "name": "search_notes",
+            "input": { "query": "quantum tunnelling", "course_id": "course_demo" },
+            "summary": "Searching your material for 'quantum tunnelling'"
+          }
+        },
+        {
+          "type": "tool-finished",
+          "ok": true,
+          "call": {
+            "name": "search_notes",
+            "input": { "query": "quantum tunnelling", "course_id": "course_demo" },
+            "summary": "No relevant passages found"
+          }
+        },
+        { "type": "text", "delta": "Not found in your uploaded material." },
+        { "type": "usage", "inputTokens": 0, "outputTokens": 0 },
+        {
+          "type": "done",
+          "messageId": "msg_demo_2",
+          "content": "Not found in your uploaded material.",
+          "citations": [],
+          "unverifiedCalculation": false,
+          "abstained": true,
+          "confidence": null
+        }
+      ]
+    },
+    {
+      "id": "chat_unverified",
+      "title": "A citation that is not in the retrieved set",
+      "question": "How long does Exercise 1.1 take?",
+      "events": [
+        { "type": "session", "sessionId": "sess_demo_3" },
+        {
+          "type": "tool-started",
+          "call": {
+            "name": "find_exercises",
+            "input": { "topic": "free fall" },
+            "summary": "Finding exercises on free fall"
+          }
+        },
+        {
+          "type": "tool-finished",
+          "ok": true,
+          "call": {
+            "name": "find_exercises",
+            "input": { "topic": "free fall" },
+            "summary": "Found Exercise 1.1 (printed p.5)"
+          }
+        },
+        {
+          "type": "text",
+          "delta": "Exercise 1.1 asks for the fall time from 20 m, about 2 s [University Physics, p.9]."
+        },
+        { "type": "usage", "inputTokens": 640, "outputTokens": 40 },
+        {
+          "type": "done",
+          "messageId": "msg_demo_3",
+          "content": "Exercise 1.1 asks for the fall time from 20 m, about 2 s [University Physics, p.9].",
+          "citations": [
+            {
+              "documentId": "doc_book",
+              "chunkId": "chk_13",
+              "page": 12,
+              "printedPage": 9,
+              "quote": "A 2 kg mass accelerates at 3 m/s²",
+              "status": "unverified"
+            }
+          ],
+          "unverifiedCalculation": true,
+          "abstained": false,
+          "confidence": 0.3
+        }
+      ]
+    }
+  ]
+}

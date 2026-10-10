@@ -1,0 +1,11 @@
+{
+  "unitFlags": [
+    { "id": "uflag_01", "unitId": "unit_10", "flag": "professor_only" },
+    { "id": "uflag_02", "unitId": "unit_12", "flag": "professor_only" }
+  ],
+  "chunkFlags": [
+    { "id": "cflag_01", "chunkId": "chk_09", "flag": "book_only" },
+    { "id": "cflag_02", "chunkId": "chk_11", "flag": "book_only" },
+    { "id": "cflag_03", "chunkId": "chk_15", "flag": "book_only" }
+  ]
+}
