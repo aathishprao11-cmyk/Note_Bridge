@@ -23,4 +23,5 @@ jobs:
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm test
-      # Phase 1c: add `pnpm eval` here (fails if citation validity < 100%).
+      # Fails if citation validity < 100%, quote flags disagree, or accuracy@1 drops (eval/score.ts).
+      - run: pnpm eval -- --no-write
