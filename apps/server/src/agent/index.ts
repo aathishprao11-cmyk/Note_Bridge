@@ -6,10 +6,9 @@ export * from './types';
 export * from './source';
 export * from './tools';
 export * from './validate';
-export { MockAgent, firstSentence, estimateTokens, toDeltas } from './mock';
+export { MockAgent, firstSentence, quoteOf, estimateTokens, toDeltas } from './mock';
 export { runChat } from './pipeline';
-export { registerChatRoutes } from './route';
-export { DEMO_COURSE_ID, DEMO_CHUNKS } from './corpus';
+export { registerStudyChatRoute, type StudyChatDeps } from './route';
 
 /**
  * Picks the agent. Only the deterministic MockAgent exists so far; asking for a real provider logs

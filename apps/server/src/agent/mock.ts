@@ -16,6 +16,11 @@ export function firstSentence(text: string): string {
   return (m ? m[0] : flat).trim();
 }
 
+/** The contract caps a citation quote at 20 words. A prefix of a verbatim quote is still verbatim. */
+export function quoteOf(text: string): string {
+  return firstSentence(text).split(' ').slice(0, 20).join(' ');
+}
+
 /** About four characters per token. Good enough for a demo counter. */
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
@@ -58,7 +63,7 @@ export class MockAgent implements Agent {
   private compose(hits: PageHit[]): AnswerDraft {
     if (hits.length === 0) {
       return {
-        text: "I couldn't find anything about that in your course material.",
+        text: 'Not found in your uploaded material.',
         citations: [],
         abstained: true,
       };
@@ -69,8 +74,7 @@ export class MockAgent implements Agent {
       chunkId: h.chunkId,
       page: h.page,
       printedPage: h.printedPage,
-      quote: firstSentence(h.text),
-      documentTitle: h.documentTitle,
+      quote: quoteOf(h.text),
     }));
     const body = used.map((h, i) => `${firstSentence(h.text)} [${i + 1}]`).join(' ');
     const extra = this.options.extraCitations ?? [];

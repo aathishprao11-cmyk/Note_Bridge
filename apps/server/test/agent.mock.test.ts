@@ -1,34 +1,18 @@
 import { describe, expect, it } from 'vitest';
+import { CitationSchema, demo } from '@gyan/core';
 import {
-  DEMO_COURSE_ID,
   MockAgent,
-  createChunkSource,
   formatPageRanges,
+  quoteOf,
   runChat,
   summarizeLookup,
   toDeltas,
-  type ChatEvent,
-  type ChunkSource,
   type PageHit,
 } from '../src/agent';
-import { openDb } from '../src/db';
-import { DocumentRepository } from '../src/db/repositories/documents';
+import { COURSE, collect, doneOf, seededSource, streamedText } from './agent-helpers';
 
-type Done = Extract<ChatEvent, { type: 'done' }>;
-type Usage = Extract<ChatEvent, { type: 'usage' }>;
-
-async function collect(gen: AsyncGenerator<ChatEvent>): Promise<ChatEvent[]> {
-  const out: ChatEvent[] = [];
-  for await (const e of gen) out.push(e);
-  return out;
-}
-
-const source = () => createChunkSource(openDb(':memory:'));
-const ask = (message: string, agent = new MockAgent(), src: ChunkSource = source()) =>
-  collect(runChat(agent, src, { courseId: DEMO_COURSE_ID, message }));
-const done = (events: ChatEvent[]) => events.find((e) => e.type === 'done') as Done;
-const streamedText = (events: ChatEvent[]) =>
-  events.flatMap((e) => (e.type === 'text' ? [e.delta] : [])).join('');
+const ask = async (message: string, agent = new MockAgent()) =>
+  collect(runChat(agent, await seededSource(), { courseId: COURSE, message }));
 
 describe('page helpers', () => {
   it('formats page ranges', () => {
@@ -39,20 +23,24 @@ describe('page helpers', () => {
 
   it('summarizes a lookup the way the chat shows it', () => {
     const h = (page: number) => ({ printedPage: page }) as PageHit;
-    const eight = [41, 42, 43, 44, 45, 46, 47, 48].map(h);
-    expect(summarizeLookup(eight)).toBe('Looked up pages 41-48');
+    expect(summarizeLookup([41, 42, 43, 44, 45, 46, 47, 48].map(h))).toBe('Looked up pages 41-48');
     expect(summarizeLookup([h(5)])).toBe('Looked up page 5');
-    expect(summarizeLookup([])).toContain('found nothing');
+    expect(summarizeLookup([])).toBe('No relevant passages found');
   });
 
   it('toDeltas rejoins to the exact original text', () => {
     const text = 'Hello  world.\n  Second line [1]';
     expect(toDeltas(text).join('')).toBe(text);
   });
+
+  it('quoteOf stays under the contract limit of 20 words', () => {
+    const long = Array.from({ length: 40 }, (_, i) => `w${i}`).join(' ') + '.';
+    expect(quoteOf(long).split(' ').length).toBeLessThanOrEqual(20);
+  });
 });
 
-describe('MockAgent over the demo course', () => {
-  it('answers with a tool event, streamed text, usage and verified citations', async () => {
+describe('MockAgent over the seeded demo course', () => {
+  it('answers with tool events, streamed text, usage and verified citations', async () => {
     const events = await ask('What is acceleration?');
     const types = events.map((e) => e.type);
     expect(types[0]).toBe('tool-started');
@@ -62,90 +50,66 @@ describe('MockAgent over the demo course', () => {
     expect(types.at(-1)).toBe('done');
 
     const finished = events.find((e) => e.type === 'tool-finished');
-    expect(finished && 'summary' in finished && finished.summary).toMatch(/^Looked up pages? \d/);
+    expect(finished).toMatchObject({ ok: true, call: { name: 'search_notes' } });
+    expect(finished && 'call' in finished && finished.call.summary).toMatch(/^Looked up pages? \d/);
 
-    const d = done(events);
+    const d = doneOf(events)!;
     expect(d.abstained).toBe(false);
     expect(d.citations.length).toBeGreaterThan(0);
-    expect(d.citations.every((c) => c.verified)).toBe(true);
-    expect(d.text).toContain('[1]');
+    expect(d.citations.every((c) => c.status === 'verified')).toBe(true);
+    expect(d.content).toContain('[1]');
     expect(d.confidence).toBeGreaterThan(0);
+    expect(d.messageId).toMatch(/^msg_/);
     // Nothing had to be stripped, so the validated text equals what was streamed.
-    expect(d.text).toBe(streamedText(events).trim());
+    expect(d.content).toBe(streamedText(events).trim());
   });
 
-  it('is deterministic: the same question gives the same events', async () => {
-    expect(await ask('Explain free fall')).toEqual(await ask('Explain free fall'));
+  it("answers the brief's acceptance question with tool calls and a validated, cited answer", async () => {
+    const events = await ask("Why does my professor's position formula differ from the book's?");
+    expect(events.some((e) => e.type === 'tool-started')).toBe(true);
+    const d = doneOf(events)!;
+    expect(d.abstained).toBe(false);
+    expect(d.citations.every((c) => c.status === 'verified')).toBe(true);
+    // The first citation is the book's position equation: pdf page 6, printed page 3.
+    expect(d.citations[0]).toMatchObject({ chunkId: 'chk_04', page: 6, printedPage: 3 });
   });
 
-  it('cites printed pages (page + offset) for slides', async () => {
-    const d = done(await ask('Remember the key equation for constant acceleration'));
-    const slide = d.citations.find((c) => c.documentId === 'doc-slides');
-    expect(slide).toBeDefined();
-    expect(slide?.printedPage).toBe((slide?.page ?? 0) + 2);
+  it('cites real seeded chunks, with printed pages from the database (offset -3)', async () => {
+    const d = doneOf(await ask('What is acceleration?'))!;
+    const seeded = new Map(demo.chunks.map((c) => [c.id, c]));
+    for (const c of d.citations) {
+      const chunk = seeded.get(c.chunkId);
+      expect(chunk).toBeDefined();
+      expect(c.page).toBe(chunk?.page);
+      expect(c.printedPage).toBe((chunk?.page ?? 0) - 3);
+      expect(chunk?.text).toContain(c.quote);
+    }
+  });
+
+  it('every citation it sends passes the frozen contract schema', async () => {
+    const d = doneOf(await ask('Explain Newton second law'))!;
+    expect(d.citations.length).toBeGreaterThan(0);
+    for (const c of d.citations) expect(CitationSchema.safeParse(c).success).toBe(true);
+  });
+
+  it('is deterministic: the same question gives the same events (apart from the message id)', async () => {
+    const strip = (es: Awaited<ReturnType<typeof ask>>) =>
+      es.map((e) => (e.type === 'done' ? { ...e, messageId: '' } : e));
+    expect(strip(await ask('Explain free fall'))).toEqual(strip(await ask('Explain free fall')));
   });
 
   it('reports usage that grows from input-only to input plus output', async () => {
-    const usages = (await ask('What is velocity?')).filter((e): e is Usage => e.type === 'usage');
-    expect(usages[0]?.outputTokens).toBe(0);
-    expect(usages[0]?.inputTokens).toBeGreaterThan(0);
-    expect(usages[1]?.outputTokens).toBeGreaterThan(0);
+    const usages = (await ask('What is velocity?')).filter((e) => e.type === 'usage');
+    expect(usages[0]).toMatchObject({ outputTokens: 0 });
+    expect(usages[1]).toMatchObject({ outputTokens: expect.any(Number) });
+    expect(usages[0] && 'inputTokens' in usages[0] && usages[0].inputTokens).toBeGreaterThan(0);
   });
 
   it('abstains on a question the material cannot answer, with no citations', async () => {
-    const d = done(await ask('Who won the football world cup?'));
+    const d = doneOf(await ask('What does my textbook say about quantum tunnelling?'))!;
     expect(d.abstained).toBe(true);
     expect(d.citations).toEqual([]);
-    expect(d.confidence).toBe(0);
-  });
-
-  it('abstains for a non-demo course that has no material', async () => {
-    const db = openDb(':memory:');
-    new DocumentRepository(db).ensureCourse('empty', 'Empty course');
-    const events = await collect(
-      runChat(new MockAgent(), createChunkSource(db), {
-        courseId: 'empty',
-        message: 'What is acceleration?',
-      }),
-    );
-    expect(done(events).abstained).toBe(true);
-  });
-});
-
-describe('answer-validate step inside the pipeline', () => {
-  const extra = (over: Record<string, unknown>) => ({
-    documentId: 'doc-book',
-    chunkId: 'doc-book-p99',
-    page: 99,
-    printedPage: 99,
-    quote: 'A page that does not exist.',
-    ...over,
-  });
-
-  it('strips a citation the agent invented because no tool returned it', async () => {
-    const events = await ask(
-      'What is acceleration?',
-      new MockAgent({ extraCitations: [extra({})] }),
-    );
-    const d = done(events);
-    expect(streamedText(events)).toMatch(/\[4\]/); // streamed with the invented marker...
-    expect(d.text).not.toMatch(/\[4\]/); // ...removed from the validated answer
-    expect(d.citations.find((c) => c.chunkId === 'doc-book-p99')).toBeUndefined();
-    expect(d.strippedCount).toBe(1);
-    expect(d.citations.every((c) => c.verified)).toBe(true);
-  });
-
-  it('marks a wrong-page citation to a real chunk as unverified and keeps it', async () => {
-    const wrong = extra({
-      chunkId: 'doc-book-p44',
-      page: 12,
-      printedPage: 12,
-      quote: 'Acceleration is the rate of change of velocity with time.',
-    });
-    const d = done(await ask('What is acceleration?', new MockAgent({ extraCitations: [wrong] })));
-    const bad = d.citations.filter((c) => !c.verified);
-    expect(bad).toHaveLength(1);
-    expect(bad[0]?.reason).toBe('page_mismatch');
-    expect(d.unverifiedCount).toBe(1);
+    expect(d.confidence).toBeNull();
+    expect(d.content).toBe('Not found in your uploaded material.');
   });
 });

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   confidenceLabel,
   formatTokens,
+  isUnverified,
   splitMarkers,
   unverifiedReason,
   type AssistantMessage,
@@ -16,12 +17,14 @@ export function ToolEvents({ tools }: { tools: ToolLine[] }) {
     <ul className="space-y-1" aria-label="Lookups">
       {tools.map((t) => (
         <li
-          key={t.id}
+          key={t.index}
           data-testid="tool-event"
           className="flex items-center gap-2 text-xs text-slate-500"
         >
-          <span aria-hidden="true">{t.status === 'running' ? '⏳' : '🔎'}</span>
-          <span>{t.status === 'running' ? `Searching for “${t.query}”…` : t.summary}</span>
+          <span aria-hidden="true">
+            {t.status === 'running' ? '⏳' : t.ok === false ? '⚠' : '🔎'}
+          </span>
+          <span>{t.summary}</span>
         </li>
       ))}
     </ul>
@@ -33,7 +36,7 @@ export function TokenCounter({ totals }: { totals: TokenTotals }) {
     <p
       data-testid="token-counter"
       className="text-xs text-slate-500"
-      title={`${totals.inputTokens} in, ${totals.outputTokens} out (estimated)`}
+      title={`${totals.inputTokens} in, ${totals.outputTokens} out`}
     >
       Tokens: {formatTokens(totals.total)} ({formatTokens(totals.inputTokens)} in /{' '}
       {formatTokens(totals.outputTokens)} out)
@@ -55,8 +58,9 @@ export function AssistantBubble({ message }: { message: AssistantMessage }) {
   const [openN, setOpenN] = useState<number | null>(null);
   const toggle = (n: number) => setOpenN((cur) => (cur === n ? null : n));
   const segments = splitMarkers(message.text, message.citations);
-  const open = message.citations.find((c) => c.n === openN);
+  const open = openN === null ? undefined : message.citations[openN - 1];
   const streaming = message.status === 'streaming';
+  const unverified = message.citations.filter(isUnverified).length;
 
   return (
     <div className="flex">
@@ -71,10 +75,16 @@ export function AssistantBubble({ message }: { message: AssistantMessage }) {
           <p className="whitespace-pre-wrap text-sm text-slate-900">
             {segments.map((s, i) => {
               if (s.kind === 'text') return <span key={i}>{s.text}</span>;
-              const c = message.citations.find((x) => x.n === s.n);
+              const c = message.citations[s.n - 1];
               return c ? (
                 <span key={i} className="mx-0.5 align-baseline">
-                  <CitationChip citation={c} compact active={openN === c.n} onToggle={toggle} />
+                  <CitationChip
+                    citation={c}
+                    n={s.n}
+                    compact
+                    active={openN === s.n}
+                    onToggle={toggle}
+                  />
                 </span>
               ) : null;
             })}
@@ -98,8 +108,14 @@ export function AssistantBubble({ message }: { message: AssistantMessage }) {
 
         {message.citations.length > 0 && (
           <div className="flex flex-wrap gap-1" aria-label="Sources">
-            {message.citations.map((c) => (
-              <CitationChip key={c.n} citation={c} active={openN === c.n} onToggle={toggle} />
+            {message.citations.map((c, i) => (
+              <CitationChip
+                key={i}
+                citation={c}
+                n={i + 1}
+                active={openN === i + 1}
+                onToggle={toggle}
+              />
             ))}
           </div>
         )}
@@ -108,29 +124,33 @@ export function AssistantBubble({ message }: { message: AssistantMessage }) {
           <blockquote
             data-testid="citation-quote"
             className={`border-l-2 pl-2 text-xs ${
-              open.verified ? 'border-blue-300 text-slate-700' : 'border-amber-500 text-amber-900'
+              isUnverified(open)
+                ? 'border-amber-500 text-amber-900'
+                : 'border-blue-300 text-slate-700'
             }`}
           >
             “{open.quote}”
-            {!open.verified && (
+            {isUnverified(open) && (
               <span className="mt-1 block font-medium">
-                Unverified citation. {unverifiedReason(open)}
+                Unverified citation. {unverifiedReason()}
               </span>
             )}
           </blockquote>
         )}
 
-        {message.status === 'done' &&
-          (message.unverifiedCount > 0 || message.strippedCount > 0) && (
-            <p data-testid="validation-note" className="text-xs text-amber-800">
-              {message.unverifiedCount > 0 &&
-                `${message.unverifiedCount} unverified citation${message.unverifiedCount === 1 ? '' : 's'} marked. `}
-              {message.strippedCount > 0 &&
-                `${message.strippedCount} citation${message.strippedCount === 1 ? '' : 's'} removed because no lookup returned ${message.strippedCount === 1 ? 'it' : 'them'}.`}
-            </p>
-          )}
+        {message.status === 'done' && unverified > 0 && (
+          <p data-testid="validation-note" className="text-xs text-amber-800">
+            {unverified} unverified citation{unverified === 1 ? '' : 's'} marked.
+          </p>
+        )}
 
-        {message.status === 'done' && message.confidence !== undefined && !message.abstained && (
+        {message.status === 'done' && message.unverifiedCalculation && (
+          <p data-testid="calc-note" className="text-xs text-amber-800">
+            Unverified calculation: a number here was not checked by running code.
+          </p>
+        )}
+
+        {message.status === 'done' && message.confidence !== null && (
           <p className="text-xs text-slate-500">{confidenceLabel(message.confidence)}</p>
         )}
       </div>

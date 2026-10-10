@@ -3,7 +3,7 @@
  * incremental parser is pure and tested; `streamChat` is the only function that touches fetch.
  */
 import { ApiError } from './api';
-import type { ChatEvent, ChatHistoryItem } from './chatTypes';
+import type { ChatEvent } from './chatTypes';
 
 /**
  * Feed raw text as it arrives. Returns the complete events found and the unconsumed tail to
@@ -34,7 +34,8 @@ export function parseSseBuffer(buffer: string): { events: ChatEvent[]; rest: str
 export interface StreamChatOptions {
   courseId: string;
   message: string;
-  history: ChatHistoryItem[];
+  /** Continue this conversation; the server keeps the history. Omit to start a new one. */
+  sessionId?: string;
   signal?: AbortSignal;
   onEvent: (event: ChatEvent) => void;
 }
@@ -44,7 +45,11 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   const res = await fetch(`/api/courses/${encodeURIComponent(opts.courseId)}/chat`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
-    body: JSON.stringify({ message: opts.message, history: opts.history }),
+    body: JSON.stringify(
+      opts.sessionId
+        ? { message: opts.message, sessionId: opts.sessionId }
+        : { message: opts.message },
+    ),
     signal: opts.signal,
   });
   if (!res.ok || !res.body) {

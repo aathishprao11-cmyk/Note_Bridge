@@ -1,11 +1,16 @@
+import { randomUUID } from 'node:crypto';
 import type { ChunkSource } from './source';
 import { ToolRunner } from './tools';
 import type { Agent, ChatEvent, ChatRequest } from './types';
-import { validateAnswer, type ValidateOptions } from './validate';
+import { validateAnswer, type ValidatedAnswer, type ValidateOptions } from './validate';
 
 export interface PipelineOptions extends ValidateOptions {
   maxToolCalls?: number;
   log?: (message: string, extra?: Record<string, unknown>) => void;
+  /** Id for the assistant message in the `done` event. Defaults to a fresh `msg_<uuid>`. */
+  messageId?: string;
+  /** Receives the full validation result (reasons, stripped count) that the contract does not carry. */
+  onValidated?: (result: ValidatedAnswer) => void;
 }
 
 /**
@@ -24,9 +29,18 @@ export async function* runChat(
   try {
     for await (const event of agent.run(req, tools)) {
       if (event.type === 'draft') {
-        const validated = validateAnswer(event.draft, tools.returned, options);
+        const v = validateAnswer(event.draft, tools.returned, options);
+        options.onValidated?.(v);
         finished = true;
-        yield { type: 'done', ...validated };
+        yield {
+          type: 'done',
+          messageId: options.messageId ?? `msg_${randomUUID()}`,
+          content: v.content,
+          citations: v.citations,
+          unverifiedCalculation: v.unverifiedCalculation,
+          abstained: v.abstained,
+          confidence: v.confidence,
+        };
         return;
       }
       yield event;

@@ -2,17 +2,19 @@
  * Pure chat state for the Chat page: the reducer that folds stream events into messages, token
  * totals, and the helpers that turn answer text into citation chips. No fetch, no React, so it is
  * unit-tested in the repo's node-environment Vitest. The network client is in `chatStream.ts`.
+ * Event and citation types are the frozen contract's (`@gyan/core`).
  */
-import type { ChatCitation, ChatEvent, ChatHistoryItem, CitationProblem } from './chatTypes';
+import type { ChatEvent, Citation } from './chatTypes';
 
 export interface ToolLine {
-  id: string;
+  /** Position of the call in this answer; the contract's tool events carry no id. */
+  index: number;
   name: string;
   query: string;
   status: 'running' | 'done';
-  summary?: string;
-  pages?: number[];
-  resultCount?: number;
+  /** Running: "Searching your material for ...". Done: "Looked up pages 41-48". */
+  summary: string;
+  ok?: boolean;
 }
 
 export interface UserMessage {
@@ -27,13 +29,14 @@ export interface AssistantMessage {
   text: string;
   status: 'streaming' | 'done' | 'error';
   tools: ToolLine[];
-  citations: ChatCitation[];
+  /** `citations[n - 1]` is the chip for the `[n]` marker in `text`. */
+  citations: Citation[];
   /** Latest usage event: cumulative for this answer, not a delta. */
   usage: { inputTokens: number; outputTokens: number };
-  confidence?: number;
+  /** Computed by the server; null when it abstained. */
+  confidence: number | null;
   abstained: boolean;
-  unverifiedCount: number;
-  strippedCount: number;
+  unverifiedCalculation: boolean;
   error?: string;
 }
 
@@ -48,15 +51,22 @@ export function newAssistantMessage(id: string): AssistantMessage {
     tools: [],
     citations: [],
     usage: { inputTokens: 0, outputTokens: 0 },
+    confidence: null,
     abstained: false,
-    unverifiedCount: 0,
-    strippedCount: 0,
+    unverifiedCalculation: false,
   };
+}
+
+function queryOf(input: Record<string, unknown>): string {
+  const q = input.query;
+  return typeof q === 'string' ? q : '';
 }
 
 /** Fold one stream event into an assistant message. Pure: returns a new object. */
 export function applyEvent(msg: AssistantMessage, ev: ChatEvent): AssistantMessage {
   switch (ev.type) {
+    case 'session':
+      return msg; // the page reads the session id itself
     case 'text':
       return { ...msg, text: msg.text + ev.delta };
     case 'tool-started':
@@ -64,37 +74,44 @@ export function applyEvent(msg: AssistantMessage, ev: ChatEvent): AssistantMessa
         ...msg,
         tools: [
           ...msg.tools,
-          { id: ev.id, name: ev.name, query: ev.input.query, status: 'running' },
+          {
+            index: msg.tools.length,
+            name: ev.call.name,
+            query: queryOf(ev.call.input),
+            status: 'running',
+            summary: ev.call.summary,
+          },
         ],
       };
-    case 'tool-finished':
+    case 'tool-finished': {
+      // Finish the oldest running call with this name; the contract has no per-call id.
+      const at = msg.tools.findIndex((t) => t.status === 'running' && t.name === ev.call.name);
+      const done: ToolLine = {
+        index: at >= 0 ? (msg.tools[at]?.index ?? at) : msg.tools.length,
+        name: ev.call.name,
+        query: queryOf(ev.call.input),
+        status: 'done',
+        summary: ev.call.summary,
+        ok: ev.ok,
+      };
       return {
         ...msg,
-        tools: msg.tools.map((t) =>
-          t.id === ev.id
-            ? {
-                ...t,
-                status: 'done',
-                summary: ev.summary,
-                pages: ev.pages,
-                resultCount: ev.resultCount,
-              }
-            : t,
-        ),
+        tools: at >= 0 ? msg.tools.map((t, i) => (i === at ? done : t)) : [...msg.tools, done],
       };
+    }
     case 'usage':
       return { ...msg, usage: { inputTokens: ev.inputTokens, outputTokens: ev.outputTokens } };
     case 'done':
       return {
         ...msg,
         // The validated text replaces whatever was streamed, so a stripped citation disappears.
-        text: ev.text,
+        // `id` stays the local id: the page finds its message by it while the stream is open.
+        text: ev.content,
         status: 'done',
         citations: ev.citations,
         confidence: ev.confidence,
         abstained: ev.abstained,
-        unverifiedCount: ev.unverifiedCount,
-        strippedCount: ev.strippedCount,
+        unverifiedCalculation: ev.unverifiedCalculation,
       };
     case 'error':
       return { ...msg, status: 'error', error: ev.message };
@@ -128,23 +145,15 @@ export function formatTokens(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 }
 
-/** Prior finished turns, in the shape the endpoint accepts. Unfinished or failed answers are left out. */
-export function toHistory(messages: ChatMessage[]): ChatHistoryItem[] {
-  return messages
-    .filter((m) => m.role === 'user' || (m.status === 'done' && !m.abstained))
-    .map((m) => ({ role: m.role, content: m.text }));
-}
-
 export type TextSegment = { kind: 'text'; text: string } | { kind: 'cite'; n: number };
 
 /** Split answer text on `[n]` markers. A marker with no matching citation stays plain text. */
-export function splitMarkers(text: string, citations: ChatCitation[]): TextSegment[] {
-  const known = new Set(citations.map((c) => c.n));
+export function splitMarkers(text: string, citations: Citation[]): TextSegment[] {
   const out: TextSegment[] = [];
   let last = 0;
   for (const m of text.matchAll(/\[(\d+)\]/g)) {
     const n = Number(m[1]);
-    if (!known.has(n)) continue;
+    if (n < 1 || n > citations.length) continue;
     const at = m.index ?? 0;
     if (at > last) out.push({ kind: 'text', text: text.slice(last, at) });
     out.push({ kind: 'cite', n });
@@ -154,20 +163,19 @@ export function splitMarkers(text: string, citations: ChatCitation[]): TextSegme
   return out;
 }
 
-export function citationLabel(c: ChatCitation): string {
-  return `${c.documentTitle ?? 'Source'}, p. ${c.printedPage}`;
+/** What a chip shows. The printed page is what the student sees in the book; fall back to the PDF page. */
+export function citationLabel(c: Citation): string {
+  return `p. ${c.printedPage ?? c.page}`;
 }
 
-const REASONS: Record<CitationProblem, string> = {
-  not_returned: 'No lookup returned this source.',
-  page_mismatch: 'The page number does not match the source that was retrieved.',
-  quote_mismatch: 'The quoted text was not found in the retrieved source.',
-};
-
-export function unverifiedReason(c: ChatCitation): string {
-  return c.reason ? REASONS[c.reason] : 'This citation could not be checked.';
+export function isUnverified(c: Citation): boolean {
+  return c.status === 'unverified';
 }
 
-export function confidenceLabel(confidence: number | undefined): string {
-  return confidence === undefined ? '' : `confidence ${Math.round(confidence * 100)}%`;
+export function unverifiedReason(): string {
+  return 'The source for this citation could not be confirmed against the retrieved pages.';
+}
+
+export function confidenceLabel(confidence: number | null): string {
+  return confidence === null ? '' : `confidence ${Math.round(confidence * 100)}%`;
 }

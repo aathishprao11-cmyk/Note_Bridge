@@ -21,7 +21,12 @@ const MAX_PER_WINDOW = 20;
  * It picks the example whose question best overlaps the message; with no overlap it replays the
  * abstain example. Nothing here is a model answer.
  */
-export function registerChatRoutes(app: FastifyInstance, db: Db) {
+export function registerChatRoutes(
+  app: FastifyInstance,
+  db: Db,
+  /** `post: false` leaves POST /chat to the Study Agent route (apps/server/src/agent/route.ts). */
+  options: { post?: boolean } = {},
+) {
   const hits: number[] = [];
 
   const pick = (message: string): ChatEventPayload[] => {
@@ -49,6 +54,8 @@ export function registerChatRoutes(app: FastifyInstance, db: Db) {
     }
     return send(reply, ChatExamplesResponse, demo.chatExamples);
   });
+
+  if (options.post === false) return;
 
   app.post('/api/courses/:id/chat', async (req, reply) => {
     const params = CourseParams.safeParse(req.params);

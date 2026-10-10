@@ -1,6 +1,6 @@
 import type { SourceRole } from '@gyan/core';
 import type { Db } from '../db';
-import { DEMO_CHUNKS, DEMO_COURSE_ID, rankHits } from './corpus';
+import { rankHits } from './corpus';
 
 /** One retrieved piece of a course document, with the page numbers a citation needs. */
 export interface PageHit {
@@ -8,9 +8,9 @@ export interface PageHit {
   documentId: string;
   documentTitle: string;
   role: SourceRole;
-  /** PDF page index. */
+  /** PDF page. */
   page: number;
-  /** Page printed on the paper: page + the document's pageOffset. */
+  /** Page printed on the paper (what the UI shows). */
   printedPage: number;
   text: string;
   /** 0..1 share of query words found. */
@@ -28,11 +28,14 @@ interface ChunkRow {
   title: string;
   role: SourceRole;
   page: number;
-  page_offset: number;
+  printed_page: number;
   text: string;
 }
 
-/** Reads ingested chunks (Phase 1a tables). Low-quality (garbled) chunks are never retrieved. */
+/**
+ * Reads the ingested chunks (what `pnpm seed` and the ingestion pipeline write). Page numbers come
+ * from the database, never from a model. Garbled low-quality chunks are never retrieved.
+ */
 export class DbChunkSource implements ChunkSource {
   constructor(private readonly db: Db) {}
 
@@ -40,20 +43,11 @@ export class DbChunkSource implements ChunkSource {
     return this.db.prepare('SELECT 1 FROM courses WHERE id = ?').get(courseId) !== undefined;
   }
 
-  hasChunks(courseId: string): boolean {
-    return (
-      this.db
-        .prepare(
-          'SELECT 1 FROM chunks c JOIN documents d ON d.id = c.document_id WHERE d.course_id = ? LIMIT 1',
-        )
-        .get(courseId) !== undefined
-    );
-  }
-
   async search(courseId: string, query: string, topK: number): Promise<PageHit[]> {
     const rows = this.db
       .prepare(
-        `SELECT c.id AS chunk_id, c.document_id, d.title, d.role, c.page, d.page_offset, c.text
+        `SELECT c.id AS chunk_id, c.document_id, d.title, d.role, c.page,
+                COALESCE(c.printed_page_start, c.page + d.page_offset) AS printed_page, c.text
            FROM chunks c JOIN documents d ON d.id = c.document_id
           WHERE d.course_id = ? AND c.quality >= 0.3`,
       )
@@ -65,7 +59,7 @@ export class DbChunkSource implements ChunkSource {
         documentTitle: r.title,
         role: r.role,
         page: r.page,
-        printedPage: r.page + r.page_offset,
+        printedPage: r.printed_page,
         text: r.text,
       })),
       query,
@@ -74,18 +68,6 @@ export class DbChunkSource implements ChunkSource {
   }
 }
 
-/**
- * The database first. The built-in demo corpus answers only for the demo course, and only while
- * that course has no ingested chunks, so real uploads always win over the demo text.
- */
 export function createChunkSource(db: Db): ChunkSource {
-  const real = new DbChunkSource(db);
-  return {
-    courseExists: (id) => real.courseExists(id) || id === DEMO_COURSE_ID,
-    search: async (courseId, query, topK) => {
-      if (real.hasChunks(courseId)) return real.search(courseId, query, topK);
-      if (courseId === DEMO_COURSE_ID) return rankHits(DEMO_CHUNKS, query, topK);
-      return [];
-    },
-  };
+  return new DbChunkSource(db);
 }

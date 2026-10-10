@@ -1,25 +1,16 @@
-import type { Citation, Usage } from '@gyan/core';
+import type { ChatEventPayload, Citation } from '@gyan/core';
 import type { ToolRunner } from './tools';
 
 /**
- * Chat types for POST /api/courses/:courseId/chat. The SSE payloads are proposed for docs/API.md
- * in docs/CONTRACT_REQUESTS.md; `Citation` and `Usage` come from the shared contract unchanged.
+ * Study-agent types. The wire format is the frozen contract in packages/core/src/api-contract.ts
+ * (`ChatEvent`); nothing here redefines it. The pipeline emits contract events minus `session`,
+ * which the route adds.
  */
 
 export type CitationProblem = 'not_returned' | 'page_mismatch' | 'quote_mismatch';
 
-/** A citation as sent to the client: the shared Citation plus its validation result. */
-export interface ChatCitation extends Citation {
-  /** 1-based number used by the `[n]` markers in the answer text. */
-  n: number;
-  verified: boolean;
-  /** Why it is unverified. Only present when `verified` is false. */
-  reason?: CitationProblem;
-  documentTitle?: string;
-}
-
-/** What an agent proposes before validation. */
-export type DraftCitation = Citation & { documentTitle?: string };
+/** A citation an agent proposes. `status` is decided by validateAnswer, never by the agent. */
+export type DraftCitation = Omit<Citation, 'status'>;
 
 export interface AnswerDraft {
   /** Answer text; `[n]` marks the n-th entry of `citations` (1-based). */
@@ -36,39 +27,11 @@ export interface ChatMessageIn {
 export interface ChatRequest {
   courseId: string;
   message: string;
+  /** Earlier turns of the same session, oldest first. */
   history?: ChatMessageIn[];
 }
 
-export type ChatEvent =
-  | { type: 'text'; delta: string }
-  | {
-      type: 'tool-started';
-      id: string;
-      name: string;
-      input: { query: string };
-    }
-  | {
-      type: 'tool-finished';
-      id: string;
-      name: string;
-      /** Human-readable line, for example "Looked up pages 41-48". */
-      summary: string;
-      pages: number[];
-      resultCount: number;
-    }
-  | ({ type: 'usage' } & Usage)
-  | {
-      type: 'done';
-      /** Final validated text. Replaces whatever was streamed. */
-      text: string;
-      citations: ChatCitation[];
-      /** Computed from tool results and validation, never reported by a model. */
-      confidence: number;
-      abstained: boolean;
-      unverifiedCount: number;
-      strippedCount: number;
-    }
-  | { type: 'error'; code: string; message: string };
+export type ChatEvent = Exclude<ChatEventPayload, { type: 'session' }>;
 
 export type AgentEvent =
   Exclude<ChatEvent, { type: 'done' | 'error' }> | { type: 'draft'; draft: AnswerDraft };

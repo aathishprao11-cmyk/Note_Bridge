@@ -1,5 +1,6 @@
+import type { Citation } from '@gyan/core';
 import type { PageHit } from './source';
-import type { AnswerDraft, ChatCitation, ChatEvent, CitationProblem } from './types';
+import type { AnswerDraft, CitationProblem } from './types';
 
 export const ABSTAIN_TEXT =
   "I couldn't find support for that in your course material, so I won't guess. Try rephrasing, or upload the relevant slides or chapter.";
@@ -17,7 +18,25 @@ export interface ValidateOptions {
   notReturned?: NotReturnedPolicy;
 }
 
-type DoneEvent = Extract<ChatEvent, { type: 'done' }>;
+/**
+ * Result of validation. `content`, `citations`, `abstained`, `confidence` and
+ * `unverifiedCalculation` are exactly the fields of the contract's `done` event; the rest is for
+ * logs and tests and is not sent. Citation n (as in "[n]") is `citations[n - 1]`.
+ */
+export interface ValidatedAnswer {
+  content: string;
+  citations: Citation[];
+  abstained: boolean;
+  /** Computed from retrieval scores and validation; null when abstained. */
+  confidence: number | null;
+  /** Always false until the Verifier is wired in: no number is checked by running code yet. */
+  unverifiedCalculation: boolean;
+  /** Per citation, why it is unverified (null when verified). Parallel to `citations`. */
+  problems: Array<CitationProblem | null>;
+  unverifiedCount: number;
+  /** Citations (or dangling markers) removed because no tool returned them. */
+  strippedCount: number;
+}
 
 const MARKER = /(\s*)\[(\d+)\]/g;
 
@@ -56,7 +75,7 @@ export function validateAnswer(
   draft: AnswerDraft,
   returned: PageHit[],
   options: ValidateOptions = {},
-): Omit<DoneEvent, 'type'> {
+): ValidatedAnswer {
   const policy = options.notReturned ?? 'strip';
   const byId = new Map(returned.map((h) => [h.chunkId, h]));
 
@@ -95,33 +114,32 @@ export function validateAnswer(
     return `${space}[${next}]`;
   });
 
-  const citations: ChatCitation[] = order.map((n) => {
-    const { cite, problem } = kept.get(n)!;
-    const out: ChatCitation = {
-      n: newNumber.get(n)!,
+  const problems = order.map((n) => kept.get(n)!.problem);
+  const citations: Citation[] = order.map((n, i) => {
+    const { cite } = kept.get(n)!;
+    return {
       documentId: cite.documentId,
       chunkId: cite.chunkId,
       page: cite.page,
       printedPage: cite.printedPage,
       quote: cite.quote,
-      verified: problem === null,
+      status: problems[i] === null ? 'verified' : 'unverified',
     };
-    if (problem) out.reason = problem;
-    if (cite.documentTitle) out.documentTitle = cite.documentTitle;
-    return out;
   });
 
-  const verified = citations.filter((c) => c.verified);
+  const verified = citations.filter((c) => c.status === 'verified');
   const unverifiedCount = citations.length - verified.length;
   const strippedCount = stripped + (stripped === 0 ? strippedMarkers : 0);
 
   if (draft.abstained || verified.length === 0) {
     return {
-      text: draft.abstained ? draft.text.trim() || ABSTAIN_TEXT : ABSTAIN_TEXT,
+      content: draft.abstained ? draft.text.trim() || ABSTAIN_TEXT : ABSTAIN_TEXT,
       // An abstention carries no citations. Anything the model attached is dropped, not displayed.
       citations: [],
-      confidence: 0,
+      confidence: null,
       abstained: true,
+      unverifiedCalculation: false,
+      problems: [],
       unverifiedCount: 0,
       strippedCount: draft.abstained ? 0 : strippedCount + unverifiedCount,
     };
@@ -132,10 +150,12 @@ export function validateAnswer(
   const meanScore = scores.reduce((a, b) => a + b, 0) / scores.length;
   const share = verified.length / citations.length;
   return {
-    text: text.trim(),
+    content: text.trim(),
     citations,
     confidence: Math.round(meanScore * share * 100) / 100,
     abstained: false,
+    unverifiedCalculation: false,
+    problems,
     unverifiedCount,
     strippedCount,
   };

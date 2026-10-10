@@ -6,7 +6,6 @@ import {
   applyEvent,
   finishStreaming,
   newAssistantMessage,
-  toHistory,
   totalUsage,
   type AssistantMessage,
   type ChatMessage,
@@ -28,6 +27,8 @@ export function Chat() {
   const abortRef = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
   const counter = useRef(0);
+  // The server keeps the conversation by session id; the first `session` event tells us ours.
+  const sessionRef = useRef<string | undefined>(undefined);
 
   useEffect(() => () => abortRef.current?.abort(), []);
   useEffect(() => {
@@ -45,7 +46,6 @@ export function Chat() {
     async (raw: string) => {
       const text = raw.trim();
       if (!text || busy) return;
-      const history = toHistory(messages);
       counter.current += 1;
       const userId = `u${counter.current}`;
       const botId = `a${counter.current}`;
@@ -62,9 +62,12 @@ export function Chat() {
         await streamChat({
           courseId,
           message: text,
-          history,
+          sessionId: sessionRef.current,
           signal: controller.signal,
-          onEvent: (event) => updateAssistant(botId, (m) => applyEvent(m, event)),
+          onEvent: (event) => {
+            if (event.type === 'session') sessionRef.current = event.sessionId;
+            updateAssistant(botId, (m) => applyEvent(m, event));
+          },
         });
         updateAssistant(botId, (m) => finishStreaming(m, 'The answer stream ended early.'));
       } catch (err) {
@@ -79,7 +82,7 @@ export function Chat() {
         abortRef.current = null;
       }
     },
-    [busy, courseId, messages, updateAssistant],
+    [busy, courseId, updateAssistant],
   );
 
   const onSubmit = (e: FormEvent) => {

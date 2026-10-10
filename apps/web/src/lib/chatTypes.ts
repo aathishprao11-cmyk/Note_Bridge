@@ -1,42 +1,13 @@
 /**
- * Web-side mirror of the chat stream (apps/server/src/agent/types.ts). Proposed for docs/API.md in
- * docs/CONTRACT_REQUESTS.md. `Citation` and `Usage` are the shared contract types.
+ * Chat wire types. They come straight from the frozen contract (packages/core/src/api-contract.ts);
+ * the web app keeps no copy of them, so a contract change fails the typecheck here.
  */
-import type { Citation, Usage } from '@gyan/core';
+import type { ChatEventPayload, Citation } from '@gyan/core';
 
-export type CitationProblem = 'not_returned' | 'page_mismatch' | 'quote_mismatch';
+export type ChatEvent = ChatEventPayload;
+export type { Citation };
 
-export interface ChatCitation extends Citation {
-  /** 1-based number used by the `[n]` markers in the answer text. */
-  n: number;
-  verified: boolean;
-  reason?: CitationProblem;
-  documentTitle?: string;
-}
-
-export type ChatEvent =
-  | { type: 'text'; delta: string }
-  | { type: 'tool-started'; id: string; name: string; input: { query: string } }
-  | {
-      type: 'tool-finished';
-      id: string;
-      name: string;
-      summary: string;
-      pages: number[];
-      resultCount: number;
-    }
-  | ({ type: 'usage' } & Usage)
-  | {
-      type: 'done';
-      text: string;
-      citations: ChatCitation[];
-      confidence: number;
-      abstained: boolean;
-      unverifiedCount: number;
-      strippedCount: number;
-    }
-  | { type: 'error'; code: string; message: string };
-
+/** Earlier turns, for display only: the server keeps the history by `sessionId`. */
 export interface ChatHistoryItem {
   role: 'user' | 'assistant';
   content: string;

@@ -1,7 +1,8 @@
 import type { ChatEvent } from './types';
 import type { ChunkSource, PageHit } from './source';
 
-export const SEARCH_TOOL = 'search_course';
+export const SEARCH_TOOL = 'search_notes';
+export const NO_RESULTS_SUMMARY = 'No relevant passages found';
 
 export class ToolLimitError extends Error {
   constructor(limit: number) {
@@ -25,10 +26,9 @@ export function formatPageRanges(pages: number[]): string {
 
 /** The line shown in the chat for a finished lookup, for example "Looked up pages 41-48". */
 export function summarizeLookup(hits: PageHit[]): string {
-  if (hits.length === 0) return 'Searched your course material and found nothing relevant';
+  if (hits.length === 0) return NO_RESULTS_SUMMARY;
   const pages = hits.map((h) => h.printedPage);
-  const label = new Set(pages).size === 1 ? 'page' : 'pages';
-  return `Looked up ${label} ${formatPageRanges(pages)}`;
+  return `Looked up ${new Set(pages).size === 1 ? 'page' : 'pages'} ${formatPageRanges(pages)}`;
 }
 
 type StartedEvent = Extract<ChatEvent, { type: 'tool-started' }>;
@@ -64,20 +64,35 @@ export class ToolRunner {
   search(query: string): ToolCall {
     if (this.calls >= this.maxCalls) throw new ToolLimitError(this.maxCalls);
     this.calls += 1;
-    const id = `tool-${this.calls}`;
-    const started: StartedEvent = { type: 'tool-started', id, name: SEARCH_TOOL, input: { query } };
+    const input = { query, course_id: this.courseId };
+    const shown = query.length > 60 ? `${query.slice(0, 57)}...` : query;
+    const started: StartedEvent = {
+      type: 'tool-started',
+      call: {
+        name: SEARCH_TOOL,
+        input,
+        summary: `Searching your material for '${shown}'`,
+      },
+    };
     return {
       started,
       finish: async () => {
-        const hits = await this.source.search(this.courseId, query, this.topK);
+        let hits: PageHit[] = [];
+        let ok = true;
+        try {
+          hits = await this.source.search(this.courseId, query, this.topK);
+        } catch {
+          ok = false; // a failed lookup is reported, and the answer then abstains
+        }
         for (const hit of hits) this.returnedById.set(hit.chunkId, hit);
         const finished: FinishedEvent = {
           type: 'tool-finished',
-          id,
-          name: SEARCH_TOOL,
-          summary: summarizeLookup(hits),
-          pages: [...new Set(hits.map((h) => h.printedPage))].sort((a, b) => a - b),
-          resultCount: hits.length,
+          ok,
+          call: {
+            name: SEARCH_TOOL,
+            input,
+            summary: ok ? summarizeLookup(hits) : 'The search failed',
+          },
         };
         return { finished, hits };
       },
