@@ -9,6 +9,7 @@ import {
   type ChatEventPayload,
 } from '@gyan/core';
 import type { Db } from '../db';
+import { validateCannedEvents } from './chat-validate';
 import { badRequest, courseExists, fail, send } from './shared';
 
 /** Simple per-process rate limit for the chat endpoint (BRIEF 17): 20 requests per minute. */
@@ -19,7 +20,9 @@ const MAX_PER_WINDOW = 20;
  * STUB (Laptop A for the contract, Laptop B replaces the body with the Study Agent in Phase 2):
  * POST /api/courses/:id/chat replays a canned conversation as SSE using the real event schema.
  * It picks the example whose question best overlaps the message; with no overlap it replays the
- * abstain example. Nothing here is a model answer.
+ * abstain example. Nothing here is a model answer. Every canned answer goes through
+ * answer-validation (routes/chat-validate.ts) before it is sent, so "unverified citation" and the
+ * confidence number are computed from the stored chunks, not trusted from the fixture.
  */
 export function registerChatRoutes(
   app: FastifyInstance,
@@ -52,7 +55,12 @@ export function registerChatRoutes(
     if (!courseExists(db, params.data.id)) {
       return fail(reply, 404, 'course_not_found', `No course with id "${params.data.id}"`);
     }
-    return send(reply, ChatExamplesResponse, demo.chatExamples);
+    // Run answer-validation over every canned answer: verification status is computed, not stored.
+    const examples = demo.chatExamples.map((ex) => ({
+      ...ex,
+      events: validateCannedEvents(db, params.data.id, ex.question, ex.events),
+    }));
+    return send(reply, ChatExamplesResponse, examples);
   });
 
   if (options.post === false) return;
@@ -92,7 +100,9 @@ export function registerChatRoutes(
       Connection: 'keep-alive',
       'Access-Control-Allow-Origin': '*',
     });
-    for (const event of pick(body.data.message)) {
+    const canned = pick(body.data.message);
+    const question = demo.chatExamples.find((e) => e.events === canned)?.question ?? '';
+    for (const event of validateCannedEvents(db, params.data.id, question, canned)) {
       // The canned session id is replaced so each request gets its own.
       const out = event.type === 'session' ? { ...event, sessionId } : event;
       const valid = ChatEvent.safeParse(out);

@@ -1,5 +1,8 @@
 import type { Chunk, Citation, ClaimVerdict } from '../types';
 
+export * from './quote-verify';
+export * from './answer-validate';
+
 /** Interface frozen in the contract step. Implemented in Phase 1b (owner: Laptop A). */
 
 export interface GroundedAnswer {

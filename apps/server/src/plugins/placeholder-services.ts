@@ -1,4 +1,10 @@
-import type { Chunk, GroundedAnswer, GroundingService, RetrievalService } from '@gyan/core';
+import {
+  verifyQuoteText,
+  type Chunk,
+  type GroundedAnswer,
+  type GroundingService,
+  type RetrievalService,
+} from '@gyan/core';
 
 /**
  * Stand-ins until Phase 1b implements retrieval and grounding (owner: Laptop A). They are honest,
@@ -17,8 +23,7 @@ export const placeholderRetrieval: RetrievalService = {
 
 export const placeholderGrounding: GroundingService = {
   verifyQuote(chunk: Chunk, quote: string): boolean {
-    const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
-    return norm(quote).length > 0 && norm(chunk.text).includes(norm(quote));
+    return verifyQuoteText(chunk.text, quote, 0.9);
   },
   validateAnswer(answer: GroundedAnswer, retrieved: Chunk[]): GroundedAnswer {
     const ids = new Set(retrieved.map((c) => c.id));
