@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseConfig, type GyanPlugin } from '@gyan/core';
+import { parseConfig, type FeaturePlugin } from '@gyan/core';
 import { buildApp } from '../src/app';
 import { openDb } from '../src/db';
 
@@ -61,18 +61,21 @@ describe('server', () => {
   });
 
   it('loads a plugin listed in PLUGINS and mounts its routes', async () => {
-    const plugin: GyanPlugin = {
+    const plugin: FeaturePlugin = {
       id: 'demo',
       name: 'Demo',
       version: '0.0.1',
-      register: () => [{ method: 'GET', path: '/ping', handler: async () => ({ pong: true }) }],
+      register: (ctx) =>
+        ctx.addRoutes('', (app) => {
+          app.get('/ping', async () => ({ pong: true }));
+        }),
     };
     const { app, plugins } = await buildApp({
       config: memConfig({ PLUGINS: 'demo' }),
       importer: async () => ({ default: plugin }),
     });
     expect(plugins.map((p) => p.id)).toEqual(['demo']);
-    const res = await app.inject({ method: 'GET', url: '/api/plugins/demo/ping' });
+    const res = await app.inject({ method: 'GET', url: '/api/features/demo/ping' });
     expect(res.json()).toEqual({ pong: true });
     await app.close();
   });

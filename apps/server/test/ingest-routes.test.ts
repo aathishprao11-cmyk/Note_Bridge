@@ -26,7 +26,7 @@ describe('ingest routes: upload', () => {
     expect(list.json()[0]).toMatchObject({
       id: documentId,
       title: 'Physics Book',
-      role: 'book',
+      kind: 'book',
       pageCount: 2,
     });
     await app.close();

@@ -1,6 +1,6 @@
-import type { Chunk, Citation } from '../types';
+import type { Chunk, Citation, ClaimVerdict } from '../types';
 
-/** Interface only in Phase 0. Implemented in Phase 1b (owner: Dev A). */
+/** Interface frozen in the contract step. Implemented in Phase 1b (owner: Laptop A). */
 
 export interface GroundedAnswer {
   text: string;
@@ -10,9 +10,14 @@ export interface GroundedAnswer {
   abstained: boolean;
 }
 
-export interface Grounder {
-  /** True only if `quote` appears verbatim (after whitespace normalisation) in the chunk text. */
+export interface GroundingService {
+  /** True only if the quote fuzzy-matches the chunk text at or above QUOTE_MATCH_MIN. */
   verifyQuote(chunk: Chunk, quote: string): boolean;
-  /** Reject or repair answers that cite chunks/pages that were not retrieved. */
+  /** Mark citations not in the retrieved set as unverified (never silently keep them). */
   validateAnswer(answer: GroundedAnswer, retrieved: Chunk[]): GroundedAnswer;
+  /** Second pass: does the snippet support this conflict or correction claim? */
+  checkClaim(claim: string, snippet: string): Promise<ClaimVerdict>;
 }
+
+/** Phase 0 name, kept as an alias. */
+export type Grounder = GroundingService;

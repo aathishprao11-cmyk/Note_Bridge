@@ -38,6 +38,9 @@ interface ChunkRow {
   page: number;
   token_count: number;
   quality: number;
+  pdf_page_end: number | null;
+  printed_page_start: number | null;
+  printed_page_end: number | null;
 }
 
 interface ExerciseRow {
@@ -49,6 +52,17 @@ interface ExerciseRow {
   has_solution: number;
   solution: string | null;
   page: number;
+  printed_page: number | null;
+  difficulty: number | null;
+  level: Exercise['level'];
+  topic_tags: string;
+  verifiable: number;
+}
+
+/** Mean page quality 0..1 across readable pages; null when there are none. */
+function meanQuality(result: IngestResult): number | null {
+  const q = result.pageQuality.filter((p) => p.verdict !== 'reject');
+  return q.length === 0 ? null : q.reduce((s, p) => s + p.score, 0) / q.length;
 }
 
 /** Reads and writes everything an ingested document produces. */
@@ -64,7 +78,7 @@ export class IngestStore {
     db.transaction(() => {
       db.prepare(
         `UPDATE documents SET status = 'ready', page_count = ?, page_offset = ?, offset_confidence = ?,
-           heading_source = ?, warnings = ?, page_quality = ? WHERE id = ?`,
+           heading_source = ?, warnings = ?, page_quality = ?, extraction_quality = ? WHERE id = ?`,
       ).run(
         result.pageCount,
         result.pageOffset,
@@ -72,8 +86,24 @@ export class IngestStore {
         result.headingSource,
         JSON.stringify(result.warnings),
         JSON.stringify(result.pageQuality),
+        meanQuality(result),
         documentId,
       );
+
+      const insPage = db.prepare(
+        `INSERT INTO pages (id, document_id, pdf_page, printed_page, text, is_scanned, garbled_score)
+         VALUES (?, ?, ?, ?, '', ?, ?)`,
+      );
+      for (const q of result.pageQuality) {
+        insPage.run(
+          `${documentId}:p${q.page}`,
+          documentId,
+          q.page,
+          q.page + result.pageOffset,
+          q.scanned ? 1 : 0,
+          1 - q.score,
+        );
+      }
 
       const insSection = db.prepare(
         `INSERT INTO sections (id, document_id, parent_id, title, level, page_start, page_end, summary, ordinal)
@@ -95,8 +125,9 @@ export class IngestStore {
 
       const insChunk = db.prepare(
         `INSERT INTO chunks (id, document_id, section_id, parent_id, prev_id, next_id, kind, text,
-           context_header, page, token_count, quality, ordinal, exception)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           context_header, page, token_count, quality, ordinal, exception,
+           pdf_page_end, printed_page_start, printed_page_end)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
       const insEmb = db.prepare(
         'INSERT INTO embeddings (chunk_id, model, vector) VALUES (?, ?, ?)',
@@ -117,14 +148,18 @@ export class IngestStore {
           c.quality,
           i,
           c.exception ?? null,
+          c.page,
+          c.page + result.pageOffset,
+          c.page + result.pageOffset,
         );
         const vec = result.embeddings[i];
         if (vec) insEmb.run(c.id, result.embeddingModel, encodeVector(vec));
       });
 
       const insEx = db.prepare(
-        `INSERT INTO exercises (id, document_id, chunk_id, label, statement, has_solution, solution, page)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO exercises (id, document_id, chunk_id, label, statement, has_solution, solution, page,
+           printed_page)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
       for (const e of result.exercises) {
         insEx.run(
@@ -136,6 +171,7 @@ export class IngestStore {
           e.hasSolution ? 1 : 0,
           e.solution,
           e.page,
+          e.page + result.pageOffset,
         );
       }
     })();
@@ -174,6 +210,10 @@ export class IngestStore {
       text: r.text,
       contextHeader: r.context_header,
       page: r.page,
+      pdfPageStart: r.page,
+      pdfPageEnd: r.pdf_page_end ?? r.page,
+      printedPageStart: r.printed_page_start,
+      printedPageEnd: r.printed_page_end,
       tokenCount: r.token_count,
       quality: r.quality,
     }));
@@ -193,6 +233,11 @@ export class IngestStore {
       hasSolution: r.has_solution === 1,
       solution: r.solution,
       page: r.page,
+      printedPage: r.printed_page,
+      difficulty: r.difficulty,
+      level: r.level,
+      topicTags: JSON.parse(r.topic_tags) as string[],
+      verifiable: r.verifiable === 1,
     }));
   }
 

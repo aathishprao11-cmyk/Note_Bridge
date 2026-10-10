@@ -1,11 +1,17 @@
-import type { Document, SourceRole } from '@gyan/core';
+import type { Document, DocumentKind, DocumentLevel, DocumentStatus, SourceRole } from '@gyan/core';
 import type { Db } from '../index';
 
 interface DocumentRow {
   id: string;
   course_id: string;
   role: SourceRole;
+  kind: DocumentKind;
   title: string;
+  path: string | null;
+  level: DocumentLevel;
+  meta_json: string;
+  status: DocumentStatus;
+  extraction_quality: number | null;
   content_hash: string;
   page_count: number;
   page_offset: number;
@@ -16,8 +22,13 @@ function toDocument(r: DocumentRow): Document {
   return {
     id: r.id,
     courseId: r.course_id,
-    role: r.role,
+    kind: r.kind,
     title: r.title,
+    path: r.path,
+    level: r.level,
+    meta: JSON.parse(r.meta_json) as Record<string, unknown>,
+    status: r.status,
+    extractionQuality: r.extraction_quality,
     contentHash: r.content_hash,
     pageCount: r.page_count,
     pageOffset: r.page_offset,
@@ -77,9 +88,16 @@ export class DocumentRepository {
   }): void {
     this.db
       .prepare(
-        "INSERT INTO documents (id, course_id, role, title, content_hash, status) VALUES (?, ?, ?, ?, ?, 'processing')",
+        "INSERT INTO documents (id, course_id, role, kind, title, content_hash, status) VALUES (?, ?, ?, ?, ?, ?, 'processing')",
       )
-      .run(args.id, args.courseId, args.role, args.title, args.contentHash);
+      .run(
+        args.id,
+        args.courseId,
+        args.role,
+        args.role === 'notes' ? 'handwritten' : args.role,
+        args.title,
+        args.contentHash,
+      );
   }
 
   markFailed(id: string): void {

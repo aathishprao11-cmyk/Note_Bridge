@@ -6,14 +6,20 @@ import {
   createLLMProvider,
   redactConfig,
   type Config,
-  type PluginContext,
+  type Logger,
 } from '@gyan/core';
 import { openDb, type Db } from './db';
 import { DocumentRepository } from './db/repositories/documents';
 import { IngestStore } from './db/repositories/ingest-store';
 import { JobRepository } from './db/repositories/jobs';
 import { JobRunner, ProgressBus } from './jobs';
-import { loadPlugins, type LoadedPlugin, type PluginImporter } from './plugins/loader';
+import {
+  loadPlugins,
+  PluginRegistry,
+  type LoadedPlugin,
+  type PluginImporter,
+} from './plugins/loader';
+import { placeholderGrounding, placeholderRetrieval } from './plugins/placeholder-services';
 import { registerIngestRoutes } from './routes/ingest';
 import { createSandbox, type Sandbox } from './sandbox';
 
@@ -52,19 +58,32 @@ export async function buildApp({ config, importer }: BuildOptions): Promise<Buil
     db.close();
   });
 
-  const ctx: PluginContext = {
+  const logger: Logger = {
+    debug: () => undefined,
+    info: (message, extra) => console.log(`[gyan] ${message}`, extra ? JSON.stringify(extra) : ''),
+    warn: (message, extra) => console.warn(`[gyan] ${message}`, extra ? JSON.stringify(extra) : ''),
+    error: (message, extra) =>
+      console.error(`[gyan] ${message}`, extra ? JSON.stringify(extra) : ''),
+  };
+  const ctx = {
+    db,
     config,
     llm: createLLMProvider(config),
     embeddings: createEmbeddingProvider(config),
-    vectors: new InMemoryVectorIndex(),
-    log: (message, extra) => console.log(`[gyan] ${message}`, extra ? JSON.stringify(extra) : ''),
+    vector: new InMemoryVectorIndex(),
+    retrieve: placeholderRetrieval,
+    ground: placeholderGrounding,
+    logger,
   };
 
-  const sandbox = createSandbox({ mode: config.SANDBOX_MODE, log: ctx.log });
+  // Laptop B's sandbox wiring (kept) on top of the frozen PluginContext and registry.
+  const sandbox = createSandbox({ mode: config.SANDBOX_MODE, log: (m, e) => logger.info(m, e) });
+  const registry = new PluginRegistry();
   const plugins = await loadPlugins(
     app,
     ctx,
     config.plugins,
+    registry,
     withSandbox(importer ?? ((s) => import(s)), sandbox),
   );
 

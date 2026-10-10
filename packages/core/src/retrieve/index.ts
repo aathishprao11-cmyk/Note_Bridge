@@ -1,6 +1,6 @@
 import type { Chunk, Citation } from '../types';
 
-/** Interface only in Phase 0. Implemented in Phase 1b (owner: Dev A). */
+/** Interface frozen in the contract step. Implemented in Phase 1b (owner: Laptop A). */
 
 export interface RetrievalQuery {
   courseId: string;
@@ -22,8 +22,11 @@ export interface RetrievalResult {
   abstainReason?: string;
 }
 
-export interface Retriever {
+export interface RetrievalService {
   retrieve(q: RetrievalQuery): Promise<RetrievalResult>;
 }
+
+/** Phase 0 name, kept as an alias. */
+export type Retriever = RetrievalService;
 
 export type { Citation };
